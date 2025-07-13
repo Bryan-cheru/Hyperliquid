@@ -4,7 +4,6 @@ import Graph from "./components/Graph/Graph"
 import Navbar from "./components/Navbar/Navbar"
 import Tabs from "./components/Tabs/Tabs"
 import TradingControls, { type Buttons } from "./components/TradingControls/TradingControls"
-import { AnimatePresence, motion } from "framer-motion"
 
 function App() {
 
@@ -35,7 +34,7 @@ function App() {
         )}
 
         <div className="flex flex-col flex-grow min-w-0 -m-1">
-          <Graph setModal={setModal} sidebar={sidebar} />
+          <Graph setModal={setModal} />
           <Tabs />
         </div>
 
