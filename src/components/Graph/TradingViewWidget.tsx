@@ -22,7 +22,7 @@ function TradingViewWidget() {
         "locale": "en",
         "save_image": true,
         "style": "1",
-        "symbol": "KUCOIN:HYPEUSDT",
+        "symbol": "BINANCE:BTCUSDT",
         "theme": "dark",
         "timezone": "Etc/UTC",
         "backgroundColor": "#0F0F0F",

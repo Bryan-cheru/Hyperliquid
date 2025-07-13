@@ -372,14 +372,18 @@ const Account = ({ acc, id, getId, getName }: AccountProps) => {
           {/* Dropdowns for selecting trading pairs */}
           <div className="flex justify-between gap-4">
             <select className="w-full bg-[#1f2228] border border-gray-600 px-3 py-2 rounded-md text-xs"   onClick={e => e.stopPropagation()}>
-              <option>BTC/USDT</option>
-              <option>ETH/USDT</option>
-              <option>BNB/USDT</option>
+              <option>BTC-USD</option>
+              <option>ETH-USD</option>
+              <option>SOL-USD</option>
+              <option>HYPE-USD</option>
+              <option>ARB-USD</option>
             </select>
             <select className="w-full bg-[#1f2228] border border-gray-600 px-3 py-2 rounded-md text-xs"  onClick={e => e.stopPropagation()}>
-              <option>BTC/USDT</option>
-              <option>ETH/USDT</option>
-              <option>BNB/USDT</option>
+              <option>BTC-USD</option>
+              <option>ETH-USD</option>
+              <option>SOL-USD</option>
+              <option>HYPE-USD</option>
+              <option>ARB-USD</option>
             </select>
           </div>
         </div>

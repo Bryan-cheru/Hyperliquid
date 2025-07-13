@@ -13,21 +13,30 @@ const ButtonWrapper = () => {
       return;
     }
 
-    // This would normally get values from the trading form (leverage, size, etc.)
-    // For now, using default values as example
+    // Get the current trading pair from connected account
+    // Convert from various formats to standard format
+    let symbol = connectedAccount.pair;
+    if (symbol.includes('/')) {
+      // Convert BTC/USDT to BTC-USD format for HyperLiquid
+      symbol = symbol.replace('/USDT', '-USD').replace('/USDC', '-USD');
+    }
+
+    // Use actual trading parameters (in production, get these from form inputs)
     const order: TradingOrder = {
-      symbol: connectedAccount.pair,
+      symbol: symbol,
       side,
-      orderType: "market", // This should come from the form state
-      quantity: 0.01, // This should come from position size input
-      leverage: 10, // This should come from leverage slider
+      orderType: "market", // TODO: Get from Market/Limit toggle
+      quantity: 0.1, // TODO: Get from position size slider/input
+      leverage: 20, // TODO: Get from leverage slider
     };
 
+    console.log(`🚀 Executing ${side.toUpperCase()} order:`, order);
+    
     const result = await executeOrder(order);
     setStatusMessage(result.message);
     
-    // Clear message after 3 seconds
-    setTimeout(() => setStatusMessage(""), 3000);
+    // Clear message after 5 seconds to see the result
+    setTimeout(() => setStatusMessage(""), 5000);
   };
 
   const handleCloseAll = async () => {

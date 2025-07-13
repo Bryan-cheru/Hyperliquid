@@ -48,12 +48,19 @@ export const connectToHyperLiquid = async (
     // Mock successful connection
     console.log(`Connecting account ${connectionData.accountId} to HyperLiquid...`);
     
-    // Simulate HyperLiquid API call
+    // Simulate HyperLiquid API call with realistic data
     const mockApiResponse = {
       account: {
         id: connectionData.accountId,
-        balance: Math.random() * 10000,
-        positions: [],
+        balance: Math.round((Math.random() * 5000 + 1000) * 100) / 100, // $1000-$6000
+        positions: [
+          // Mock some realistic positions like in your screenshot
+          {
+            asset: "BTC",
+            size: (Math.random() * 0.1).toFixed(4),
+            side: Math.random() > 0.5 ? "long" : "short"
+          }
+        ],
         orders: []
       },
       timestamp: new Date().toISOString()
