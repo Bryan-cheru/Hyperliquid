@@ -1,6 +1,7 @@
 import { createContext, useState } from "react";
 import type { ReactNode } from "react";
-import { createPlaceholderSignature, validateOrderPayload, logOrderDetails, showLiveTradingRequirements } from "../utils/hyperLiquidHelpers";
+import { signOrderAction } from "../utils/hyperLiquidSigning";
+import { validateOrderPayload, logOrderDetails, showLiveTradingRequirements } from "../utils/hyperLiquidHelpers";
 
 // Types for trading account and connection
 export interface ConnectedAccount {
@@ -83,27 +84,29 @@ export const TradingProvider = ({ children }: { children: ReactNode }) => {
         throw new Error(`Asset ${assetSymbol} not found in HyperLiquid universe`);
       }
 
+      // Define order action first
+      const orderAction = {
+        type: "order",
+        orders: [{
+          a: assetIndex, // asset index
+          b: order.side === "buy", // isBuy
+          p: order.price?.toString() || "0", // price (0 for market orders)
+          s: order.quantity.toString(), // size
+          r: false, // reduceOnly
+          t: order.orderType === "limit" 
+            ? { limit: { tif: "Gtc" } } // Good Till Canceled for limit orders
+            : { limit: { tif: "Ioc" } }, // Immediate or Cancel for market orders
+        }],
+        grouping: "na" as const
+      };
+
       // Prepare HyperLiquid order payload according to their official API specification
-      // Reference: https://hyperliquid.gitbook.io/hyperliquid-docs/for-developers/api/exchange-endpoint
       const nonce = Date.now();
       
       const orderPayload = {
-        action: {
-          type: "order",
-          orders: [{
-            a: assetIndex, // asset index
-            b: order.side === "buy", // isBuy
-            p: order.price?.toString() || "0", // price (0 for market orders)
-            s: order.quantity.toString(), // size
-            r: false, // reduceOnly
-            t: order.orderType === "limit" 
-              ? { limit: { tif: "Gtc" } } // Good Till Canceled for limit orders
-              : { limit: { tif: "Ioc" } }, // Immediate or Cancel for market orders
-          }],
-          grouping: "na" as const
-        },
+        action: orderAction,
         nonce,
-        signature: createPlaceholderSignature()
+        signature: await signOrderAction(orderAction, nonce, connectedAccount.privateKey)
       };
 
       // Validate order payload before sending
@@ -115,9 +118,8 @@ export const TradingProvider = ({ children }: { children: ReactNode }) => {
       // Log detailed order information
       logOrderDetails(orderPayload);
       
-      // Important note about signature
-      console.log('⚠️ DEMO MODE: Using placeholder signature - HyperLiquid will reject this order');
-      console.log('💡 To enable live trading, implement real EIP-712 signing in hyperLiquidSigning.ts');
+      // Using real EIP-712 signing for HyperLiquid integration
+      console.log('� Order signed with real signature for live trading');
       
       // Send order to HyperLiquid API
       try {
@@ -330,7 +332,7 @@ export const TradingProvider = ({ children }: { children: ReactNode }) => {
           const closeOrderPayload = {
             action: closeAction,
             nonce: Date.now() + closedCount, // Unique nonce for each order
-            signature: createPlaceholderSignature()
+            signature: await signOrderAction(closeAction, Date.now() + closedCount, connectedAccount.privateKey)
           };
           
           try {
@@ -422,7 +424,7 @@ export const TradingProvider = ({ children }: { children: ReactNode }) => {
           cancels: cancels
         },
         nonce: Date.now(),
-        signature: createPlaceholderSignature()
+        signature: await signOrderAction({ type: "cancel", cancels: cancels }, Date.now(), connectedAccount.privateKey)
       };
       
       try {

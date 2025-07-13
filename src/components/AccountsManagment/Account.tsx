@@ -78,6 +78,20 @@ const Account = ({ acc, id, getId, getName }: AccountProps) => {
       return;
     }
 
+    // Validate wallet address format
+    if (!publicKey.trim().match(/^0x[a-fA-F0-9]{40}$/)) {
+      setErrorMessage("Invalid wallet address format. Should be 0x followed by 40 hexadecimal characters");
+      setConnectionStatus("error");
+      return;
+    }
+
+    // Validate private key format (basic check)
+    if (!privateKey.trim().match(/^(0x)?[a-fA-F0-9]{64}$/)) {
+      setErrorMessage("Invalid private key format. Should be 64 hexadecimal characters");
+      setConnectionStatus("error");
+      return;
+    }
+
     setIsConnecting(true);
     setErrorMessage("");
     setConnectionStatus("idle");
@@ -111,42 +125,74 @@ const Account = ({ acc, id, getId, getName }: AccountProps) => {
         const accountData = await accountResponse.json();
         const ordersData = await ordersResponse.json();
         
+        console.log('HyperLiquid Data Loaded:', { accountData, ordersData });
+        
+        // Initialize variables for real data
+        let updatedBalance = acc.balance;
+        let updatedPnL = acc.pnl;
+        let updatedPair = acc.pair;
+        let updatedOpenOrdersCount = 0;
+        
         // Update real data from API response
         if (accountData.marginSummary) {
           const balance = accountData.marginSummary.accountValue;
           const pnl = accountData.marginSummary.totalPv;
-          setRealBalance(`$${parseFloat(balance).toFixed(2)}`);
-          setRealPnL(parseFloat(pnl) >= 0 ? `+$${parseFloat(pnl).toFixed(2)}` : `$${parseFloat(pnl).toFixed(2)}`);
+          
+          // Only update if we have non-zero values or if account was empty
+          if (balance && parseFloat(balance) > 0) {
+            updatedBalance = `$${parseFloat(balance).toFixed(2)}`;
+            setRealBalance(updatedBalance);
+          } else if (balance === "0.0") {
+            // Account exists but has zero balance - show this
+            updatedBalance = "$0.00";
+            setRealBalance(updatedBalance);
+          }
+          
+          if (pnl !== undefined) {
+            updatedPnL = parseFloat(pnl) >= 0 ? `+$${parseFloat(pnl).toFixed(2)}` : `$${parseFloat(pnl).toFixed(2)}`;
+            setRealPnL(updatedPnL);
+          }
         }
 
         // Get active trading pair from positions if any
         if (accountData.assetPositions && accountData.assetPositions.length > 0) {
           const mainPosition = accountData.assetPositions[0];
-          setRealPair(`${mainPosition.position.coin}/USDT`);
+          if (mainPosition.position?.coin) {
+            updatedPair = `${mainPosition.position.coin}/USDT`;
+            setRealPair(updatedPair);
+          }
         }
 
         // Count open orders
-        setOpenOrdersCount(ordersData.length || 0);
+        if (ordersData && Array.isArray(ordersData)) {
+          updatedOpenOrdersCount = ordersData.length;
+          setOpenOrdersCount(updatedOpenOrdersCount);
+        }
 
         setConnectionStatus("connected");
-        console.log('HyperLiquid Data Loaded:', { accountData, ordersData });
         console.log('Trading enabled with private key configured');
         
-        // Set connected account for trading context
+        // Set connected account for trading context with updated data
         const connectedAccountData: ConnectedAccount = {
           accountId: acc.num,
           accountName: `${acc.title} ${acc.num}`,
           publicKey: publicKey.trim(),
           privateKey: privateKey.trim(),
-          balance: realBalance || acc.balance,
-          pnl: realPnL || acc.pnl,
-          pair: realPair || acc.pair,
-          openOrdersCount,
+          balance: updatedBalance,
+          pnl: updatedPnL,
+          pair: updatedPair,
+          openOrdersCount: updatedOpenOrdersCount,
           connectionStatus: "connected"
         };
         
         setConnectedAccount(connectedAccountData);
         console.log('Account connected for trading:', connectedAccountData.accountName);
+        console.log('Account data:', { 
+          balance: updatedBalance, 
+          pnl: updatedPnL, 
+          pair: updatedPair, 
+          openOrders: updatedOpenOrdersCount 
+        });
         
       } else {
         throw new Error(`API request failed. Account: ${accountResponse.status}, Orders: ${ordersResponse.status}`);
