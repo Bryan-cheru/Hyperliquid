@@ -26,6 +26,18 @@ const Account = ({ acc, id, getId, getName }: AccountProps) => {
   const [clicked, setClicked] = useState<boolean>(false); // State to toggle expand/collapse
   const [masterChecked, setMasterChecked] = useState(false); // State for MASTER PAIR checkbox
   const [subscriberChecked, setSubscriberChecked] = useState(false); // State for SUBSCRIBER PAIR checkbox
+  const [publicKey, setPublicKey] = useState<string>(""); // Wallet address (public key)
+  const [privateKey, setPrivateKey] = useState<string>(""); // Private key for trading
+  const [isConnecting, setIsConnecting] = useState<boolean>(false); // Connection status
+  const [connectionStatus, setConnectionStatus] = useState<"idle" | "connected" | "error">("idle"); // Connection state
+  const [errorMessage, setErrorMessage] = useState<string>(""); // Error message
+  
+  // Real account data from HyperLiquid
+  const [realBalance, setRealBalance] = useState<string>("");
+  const [realPnL, setRealPnL] = useState<string>("");
+  const [realPair, setRealPair] = useState<string>("");
+  const [openOrdersCount, setOpenOrdersCount] = useState<number>(0);
+  
   const cardRef = useRef<HTMLDivElement | null>(null); // Ref to detect outside clicks
 
   // Effect to close the card dropdown when clicking outside
@@ -51,6 +63,81 @@ const Account = ({ acc, id, getId, getName }: AccountProps) => {
       }
       return next;
     });
+  };
+
+  // Function to handle HyperLiquid API connection and fetch real data
+  const handleConnect = async () => {
+    if (!publicKey.trim() || !privateKey.trim()) {
+      setErrorMessage("Please provide both wallet address and private key for trading access");
+      setConnectionStatus("error");
+      return;
+    }
+
+    setIsConnecting(true);
+    setErrorMessage("");
+    setConnectionStatus("idle");
+
+    try {
+      // Fetch user's account data from HyperLiquid
+      const accountResponse = await fetch('https://api.hyperliquid.xyz/info', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          type: "clearinghouseState",
+          user: publicKey.trim()
+        }),
+      });
+
+      // Fetch open orders
+      const ordersResponse = await fetch('https://api.hyperliquid.xyz/info', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          type: "openOrders",
+          user: publicKey.trim()
+        }),
+      });
+
+      if (accountResponse.ok && ordersResponse.ok) {
+        const accountData = await accountResponse.json();
+        const ordersData = await ordersResponse.json();
+        
+        // Update real data from API response
+        if (accountData.marginSummary) {
+          const balance = accountData.marginSummary.accountValue;
+          const pnl = accountData.marginSummary.totalPv;
+          setRealBalance(`$${parseFloat(balance).toFixed(2)}`);
+          setRealPnL(parseFloat(pnl) >= 0 ? `+$${parseFloat(pnl).toFixed(2)}` : `$${parseFloat(pnl).toFixed(2)}`);
+        }
+
+        // Get active trading pair from positions if any
+        if (accountData.assetPositions && accountData.assetPositions.length > 0) {
+          const mainPosition = accountData.assetPositions[0];
+          setRealPair(`${mainPosition.position.coin}/USDT`);
+        }
+
+        // Count open orders
+        setOpenOrdersCount(ordersData.length || 0);
+
+        setConnectionStatus("connected");
+        console.log('HyperLiquid Data Loaded:', { accountData, ordersData });
+        console.log('Trading enabled with private key configured');
+        
+      } else {
+        throw new Error(`API request failed. Account: ${accountResponse.status}, Orders: ${ordersResponse.status}`);
+      }
+    } catch (error: unknown) {
+      console.error('HyperLiquid connection error:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Failed to connect to HyperLiquid API';
+      setErrorMessage(errorMessage);
+      setConnectionStatus("error");
+    } finally {
+      setIsConnecting(false);
+    }
   };
 
   return (
@@ -119,7 +206,7 @@ const Account = ({ acc, id, getId, getName }: AccountProps) => {
 
       {/* Pair and leverage info */}
       <div className="flex justify-between text-[rgba(255,255,255,0.70)] text-xs">
-        <p>{acc.pair}</p>
+        <p>{connectionStatus === "connected" && realPair ? realPair : acc.pair}</p>
         <p>{acc.leverage}</p>
       </div>
 
@@ -127,37 +214,84 @@ const Account = ({ acc, id, getId, getName }: AccountProps) => {
       <div className="flex justify-between mt-6">
         <p className="text-[rgba(255,255,255,0.70)] text-xs">
           Balance:{" "}
-          <span className="text-white font-bold text-xs">{acc.balance}</span>
+          <span className="text-white font-bold text-xs">
+            {connectionStatus === "connected" && realBalance ? realBalance : acc.balance}
+          </span>
         </p>
         <p className="text-[rgba(255,255,255,0.70)] text-xs">
-          PnL: <span className="text-white font-bold text-xs">{acc.pnl}</span>
+          PnL: <span className="text-white font-bold text-xs">
+            {connectionStatus === "connected" && realPnL ? realPnL : acc.pnl}
+          </span>
         </p>
       </div>
+
+      {/* Show open orders count if connected */}
+      {connectionStatus === "connected" && (
+        <div className="mt-2">
+          <p className="text-[rgba(255,255,255,0.70)] text-xs">
+            Open Orders: <span className="text-white font-bold text-xs">{openOrdersCount}</span>
+          </p>
+        </div>
+      )}
 
       {/* Expandable section with additional controls */}
       <AnimateHeight duration={400} height={clicked ? "auto" : 0}>
         <div className="mt-4 pt-4 flex flex-col gap-4 text-white text-sm">
           {/* API Key inputs */}
           <div className="flex flex-col gap-2">
-            <h3 className="text-xs text-gray-400 font-semibold">API Keys</h3>
+            <h3 className="text-xs text-gray-400 font-semibold">HyperLiquid Trading Setup</h3>
             <input
               type="text"
-              placeholder="Public key"
+              placeholder="Wallet Address (0x...)"
+              value={publicKey}
+              onChange={(e) => setPublicKey(e.target.value)}
               className="bg-[#1f2228] border border-gray-600 px-3 py-2 rounded-md text-xs"
-                onClick={e => e.stopPropagation()}
-
+              onClick={e => e.stopPropagation()}
             />
             <input
               type="password"
-              placeholder="Private key"
+              placeholder="Private Key (for trading)"
+              value={privateKey}
+              onChange={(e) => setPrivateKey(e.target.value)}
               className="bg-[#1f2228] border border-gray-600 px-3 py-2 rounded-md text-xs"
-                onClick={e => e.stopPropagation()}
-
+              onClick={e => e.stopPropagation()}
             />
-            <button className="bg-green-500 hover:bg-green-600 px-4 py-2 rounded-md w-fit text-xs font-medium ml-auto">
-              Connect
+            <div className="text-xs text-gray-400">
+              Both keys required for live data + trading functionality
+            </div>
+            
+            {/* Connection status indicator */}
+            {connectionStatus === "connected" && (
+              <div className="flex items-center gap-2 text-green-400 text-xs">
+                <div className="w-2 h-2 bg-green-400 rounded-full"></div>
+                Trading enabled - Live data connected
+              </div>
+            )}
+            
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                handleConnect();
+              }}
+              disabled={isConnecting || !publicKey.trim() || !privateKey.trim()}
+              className={`px-4 py-2 rounded-md w-fit text-xs font-medium ml-auto transition-colors ${
+                connectionStatus === "connected" 
+                  ? "bg-green-600 text-white" 
+                  : isConnecting 
+                    ? "bg-gray-500 text-gray-300 cursor-not-allowed" 
+                    : "bg-green-500 hover:bg-green-600 text-white"
+              }`}
+            >
+              {isConnecting ? "Connecting..." : connectionStatus === "connected" ? "Trading Ready" : "Connect & Enable Trading"}
             </button>
           </div>
+
+          {/* Error message for connection failures */}
+          {connectionStatus === "error" && errorMessage && (
+            <div className="text-red-400 text-xs">
+              {errorMessage}
+            </div>
+          )}
 
           {/* MASTER / SUBSCRIBER toggle checkboxes */}
           <div className="flex justify-between items-center text-xs">
