@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import AnimateHeight from "react-animate-height";
 import { motion } from "framer-motion";
+import { useTrading } from "../../hooks/useTrading";
+import type { ConnectedAccount } from "../../contexts/TradingContext";
 
 // Type definition for account data
 interface AccountInfo {
@@ -37,6 +39,9 @@ const Account = ({ acc, id, getId, getName }: AccountProps) => {
   const [realPnL, setRealPnL] = useState<string>("");
   const [realPair, setRealPair] = useState<string>("");
   const [openOrdersCount, setOpenOrdersCount] = useState<number>(0);
+  
+  // Trading context to connect account for trading
+  const { setConnectedAccount } = useTrading();
   
   const cardRef = useRef<HTMLDivElement | null>(null); // Ref to detect outside clicks
 
@@ -126,6 +131,22 @@ const Account = ({ acc, id, getId, getName }: AccountProps) => {
         setConnectionStatus("connected");
         console.log('HyperLiquid Data Loaded:', { accountData, ordersData });
         console.log('Trading enabled with private key configured');
+        
+        // Set connected account for trading context
+        const connectedAccountData: ConnectedAccount = {
+          accountId: acc.num,
+          accountName: `${acc.title} ${acc.num}`,
+          publicKey: publicKey.trim(),
+          privateKey: privateKey.trim(),
+          balance: realBalance || acc.balance,
+          pnl: realPnL || acc.pnl,
+          pair: realPair || acc.pair,
+          openOrdersCount,
+          connectionStatus: "connected"
+        };
+        
+        setConnectedAccount(connectedAccountData);
+        console.log('Account connected for trading:', connectedAccountData.accountName);
         
       } else {
         throw new Error(`API request failed. Account: ${accountResponse.status}, Orders: ${ordersResponse.status}`);
