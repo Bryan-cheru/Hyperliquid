@@ -60,13 +60,13 @@ export const TradingProvider = ({ children }: { children: ReactNode }) => {
     
     try {
       console.log('Executing HyperLiquid order:', order);
-      console.log('Using account:', connectedAccount.publicKey);
+      console.log('Using agent wallet:', connectedAccount.publicKey);
+      console.log('Trading on behalf of subaccount (if applicable)');
       
       // Get asset index for the trading pair
-      // Handle both formats: BTC-USD and BTC/USDT
       const assetSymbol = order.symbol.replace('/USDT', '').replace('/USDC', '').replace('-USD', '');
       
-      // First, fetch asset metadata to get the correct asset index
+      // Fetch asset metadata to get the correct asset index
       const metaResponse = await fetch('https://api.hyperliquid.xyz/info', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -84,7 +84,7 @@ export const TradingProvider = ({ children }: { children: ReactNode }) => {
         throw new Error(`Asset ${assetSymbol} not found in HyperLiquid universe`);
       }
 
-      // Define order action first
+      // Define order action for agent wallet trading
       const orderAction = {
         type: "order",
         orders: [{
@@ -100,13 +100,17 @@ export const TradingProvider = ({ children }: { children: ReactNode }) => {
         grouping: "na" as const
       };
 
-      // Prepare HyperLiquid order payload according to their official API specification
+      // Prepare HyperLiquid order payload for agent wallet
       const nonce = Date.now();
+      
+      // For agent wallets, we need to specify the vault address (main account with funds)
+      const vaultAddress = '0x9B7692dBb4b5524353ABE6826CE894Bcc235b7fB'; // Your main account address
       
       const orderPayload = {
         action: orderAction,
         nonce,
-        signature: await signOrderAction(orderAction, nonce, connectedAccount.privateKey)
+        signature: await signOrderAction(orderAction, nonce, connectedAccount.privateKey, vaultAddress),
+        vaultAddress: vaultAddress // Agent trading for this main account
       };
 
       // Validate order payload before sending
@@ -124,6 +128,7 @@ export const TradingProvider = ({ children }: { children: ReactNode }) => {
       // Send order to HyperLiquid API
       try {
         console.log('🚀 Sending order to HyperLiquid API...');
+        console.log('📍 Using wallet for API call:', connectedAccount.publicKey);
         
         const response = await fetch('https://api.hyperliquid.xyz/exchange', {
           method: 'POST',

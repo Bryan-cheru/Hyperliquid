@@ -1,74 +1,186 @@
 // HyperLiquid signature utilities
 
+// Msgpack encoding functions for action hashing
+function encodeFloat(value: number): Buffer {
+  const buffer = Buffer.allocUnsafe(9);
+  buffer.writeUInt8(0xcb, 0);
+  buffer.writeDoubleBE(value, 1);
+  return buffer;
+}
+
+function encodeInt(value: number): Buffer {
+  if (value >= 0 && value <= 127) {
+    return Buffer.from([value]);
+  } else if (value >= -32 && value < 0) {
+    return Buffer.from([0xe0 + (32 + value)]);
+  } else if (value >= 0 && value <= 255) {
+    return Buffer.from([0xcc, value]);
+  } else if (value >= 0 && value <= 65535) {
+    const buffer = Buffer.allocUnsafe(3);
+    buffer.writeUInt8(0xcd, 0);
+    buffer.writeUInt16BE(value, 1);
+    return buffer;
+  } else if (value >= 0 && value <= 4294967295) {
+    const buffer = Buffer.allocUnsafe(5);
+    buffer.writeUInt8(0xce, 0);
+    buffer.writeUInt32BE(value, 1);
+    return buffer;
+  } else {
+    const buffer = Buffer.allocUnsafe(9);
+    buffer.writeUInt8(0xcf, 0);
+    buffer.writeBigUInt64BE(BigInt(value), 1);
+    return buffer;
+  }
+}
+
+function encodeString(value: string): Buffer {
+  const utf8Buffer = Buffer.from(value, 'utf8');
+  const length = utf8Buffer.length;
+  
+  if (length <= 31) {
+    return Buffer.concat([Buffer.from([0xa0 + length]), utf8Buffer]);
+  } else if (length <= 255) {
+    return Buffer.concat([Buffer.from([0xd9, length]), utf8Buffer]);
+  } else if (length <= 65535) {
+    const header = Buffer.allocUnsafe(3);
+    header.writeUInt8(0xda, 0);
+    header.writeUInt16BE(length, 1);
+    return Buffer.concat([header, utf8Buffer]);
+  } else {
+    const header = Buffer.allocUnsafe(5);
+    header.writeUInt8(0xdb, 0);
+    header.writeUInt32BE(length, 1);
+    return Buffer.concat([header, utf8Buffer]);
+  }
+}
+
+function encodeBool(value: boolean): Buffer {
+  return Buffer.from([value ? 0xc3 : 0xc2]);
+}
+
+function encodeArray(array: unknown[]): Buffer {
+  const length = array.length;
+  let header: Buffer;
+  
+  if (length <= 15) {
+    header = Buffer.from([0x90 + length]);
+  } else if (length <= 65535) {
+    header = Buffer.allocUnsafe(3);
+    header.writeUInt8(0xdc, 0);
+    header.writeUInt16BE(length, 1);
+  } else {
+    header = Buffer.allocUnsafe(5);
+    header.writeUInt8(0xdd, 0);
+    header.writeUInt32BE(length, 1);
+  }
+  
+  const encodedItems = array.map(item => encodeValue(item));
+  return Buffer.concat([header, ...encodedItems]);
+}
+
+function encodeMap(obj: Record<string, unknown>): Buffer {
+  const keys = Object.keys(obj).sort();
+  const length = keys.length;
+  let header: Buffer;
+  
+  if (length <= 15) {
+    header = Buffer.from([0x80 + length]);
+  } else if (length <= 65535) {
+    header = Buffer.allocUnsafe(3);
+    header.writeUInt8(0xde, 0);
+    header.writeUInt16BE(length, 1);
+  } else {
+    header = Buffer.allocUnsafe(5);
+    header.writeUInt8(0xdf, 0);
+    header.writeUInt32BE(length, 1);
+  }
+  
+  const encodedPairs: Buffer[] = [];
+  for (const key of keys) {
+    encodedPairs.push(encodeString(key));
+    encodedPairs.push(encodeValue(obj[key]));
+  }
+  
+  return Buffer.concat([header, ...encodedPairs]);
+}
+
+function encodeValue(value: unknown): Buffer {
+  if (value === null) {
+    return Buffer.from([0xc0]);
+  } else if (typeof value === 'boolean') {
+    return encodeBool(value);
+  } else if (typeof value === 'number') {
+    if (Number.isInteger(value)) {
+      return encodeInt(value);
+    } else {
+      return encodeFloat(value);
+    }
+  } else if (typeof value === 'string') {
+    return encodeString(value);
+  } else if (Array.isArray(value)) {
+    return encodeArray(value);
+  } else if (typeof value === 'object' && value !== null) {
+    return encodeMap(value as Record<string, unknown>);
+  } else {
+    throw new Error(`Unsupported value type: ${typeof value}`);
+  }
+}
+
+async function msgpackHash(obj: unknown): Promise<string> {
+  // Use dynamic import for browser compatibility
+  const { ethers } = await import('ethers');
+  const encoded = encodeValue(obj);
+  return ethers.keccak256(encoded);
+}
+
 /**
- * Signs an order action for HyperLiquid using real EIP-712 signatures
- * Uses the exact format from HyperLiquid Python SDK
+ * Signs an order action for HyperLiquid using agent wallet
  */
-export async function signOrderAction(action: unknown, nonce: number, privateKey: string): Promise<{ r: string; s: string; v: number }> {
+export async function signOrderAction(action: unknown, nonce: number, privateKey: string, vaultAddress?: string): Promise<{ r: string; s: string; v: number }> {
   try {
-    // Import ethers for real signing
+    // Import ethers for signing
     const { ethers } = await import('ethers');
     
     // Ensure private key format
     const cleanPrivateKey = privateKey.startsWith('0x') ? privateKey : `0x${privateKey}`;
     const wallet = new ethers.Wallet(cleanPrivateKey);
     
-    console.log('🔐 Real signing with wallet:', wallet.address);
-    console.log('🔍 Private key provided (first 10 chars):', cleanPrivateKey.substring(0, 10) + '...');
+    console.log('� Agent wallet signing with:', wallet.address);
+    console.log('🏛️ Vault address:', vaultAddress || 'none');
     
-    // Create action hash like HyperLiquid Python SDK
-    const actionHash = await createActionHash(action, null, nonce, null);
-    console.log('🔍 Action hash:', actionHash);
+    // Create msgpack-based action hash
+    const actionHash = await msgpackHash(action);
+    console.log('🔍 Msgpack action hash:', actionHash);
     
-    // Create phantom agent (this is what HyperLiquid expects)
-    const phantomAgent = {
-      source: 'a', // 'a' for mainnet API, 'b' for testnet
-      connectionId: actionHash
-    };
+    // Create signature data by combining action hash and nonce
+    const signatureData = ethers.solidityPackedKeccak256(
+      ['bytes32', 'uint64'],
+      [actionHash, nonce]
+    );
     
-    // HyperLiquid EIP-712 domain for L1 actions (exact from Python SDK)
-    const domain = {
-      chainId: 1337,
-      name: 'Exchange',
-      verifyingContract: '0x0000000000000000000000000000000000000000',
-      version: '1'
-    };
-
-    // EIP-712 types for HyperLiquid Agent (exact from Python SDK)
-    const types = {
-      Agent: [
-        { name: 'source', type: 'string' },
-        { name: 'connectionId', type: 'bytes32' }
-      ]
-    };
+    console.log('🔍 Final signature data:', signatureData);
     
-    console.log('🔍 EIP-712 signing details:');
-    console.log('  Domain:', JSON.stringify(domain, null, 2));
-    console.log('  Types:', JSON.stringify(types, null, 2));
-    console.log('  Phantom Agent:', JSON.stringify(phantomAgent, null, 2));
-    
-    // Sign using EIP-712 typed data (HyperLiquid L1 format)
-    const signature = await wallet.signTypedData(domain, types, phantomAgent);
+    // Sign the data directly (not EIP-712 for agent wallets)
+    const signature = await wallet.signMessage(ethers.getBytes(signatureData));
     const splitSig = ethers.Signature.from(signature);
     
-    console.log('✅ Order signed with real EIP-712 signature');
+    console.log('✅ Order signed successfully');
     console.log('🔍 Signature components:', {
       r: splitSig.r,
       s: splitSig.s,
-      v: splitSig.v,
-      fullSignature: signature
+      v: splitSig.v
     });
     
-    // Let's verify signature recovery
-    try {
-      const recoveredAddress = ethers.verifyTypedData(domain, types, phantomAgent, signature);
-      console.log('🔍 Signature recovery test:', {
-        originalWallet: wallet.address,
-        recoveredAddress: recoveredAddress,
-        addressesMatch: wallet.address.toLowerCase() === recoveredAddress.toLowerCase()
-      });
-    } catch (error) {
-      console.error('❌ Signature recovery failed:', error);
+    // Verify the signature recovery
+    const recovered = ethers.verifyMessage(ethers.getBytes(signatureData), signature);
+    console.log('🔍 Signature verification:', {
+      signerWallet: wallet.address,
+      recoveredWallet: recovered,
+      signaturesMatch: wallet.address.toLowerCase() === recovered.toLowerCase()
+    });
+    
+    if (wallet.address.toLowerCase() !== recovered.toLowerCase()) {
+      console.error('❌ Signature verification failed - addresses do not match!');
     }
     
     return {
@@ -83,36 +195,8 @@ export async function signOrderAction(action: unknown, nonce: number, privateKey
 }
 
 /**
- * Creates action hash exactly like HyperLiquid Python SDK
+ * Creates action hash using msgpack encoding like HyperLiquid Python SDK
  */
-async function createActionHash(action: unknown, vaultAddress: string | null, nonce: number, expiresAfter: number | null): Promise<string> {
-  // This is a simplified version - in production you'd use msgpack like the Python SDK
-  // For now, we'll create a hash based on the action content
-  const { ethers } = await import('ethers');
-  
-  const actionString = JSON.stringify(action);
-  const actionBytes = ethers.toUtf8Bytes(actionString);
-  const nonceBytes = ethers.getBytes(ethers.zeroPadValue(ethers.toBeHex(nonce), 8));
-  
-  const dataArrays: Uint8Array[] = [actionBytes, nonceBytes];
-  
-  if (vaultAddress === null) {
-    dataArrays.push(new Uint8Array([0]));
-  } else {
-    dataArrays.push(new Uint8Array([1]));
-    dataArrays.push(ethers.getBytes(vaultAddress));
-  }
-  
-  if (expiresAfter !== null) {
-    const expiresBytes = ethers.getBytes(ethers.zeroPadValue(ethers.toBeHex(expiresAfter), 8));
-    dataArrays.push(new Uint8Array([0]));
-    dataArrays.push(expiresBytes);
-  }
-  
-  const data = ethers.concat(dataArrays);
-  return ethers.keccak256(data);
-}
-
 /**
  * Verifies that a private key corresponds to the expected wallet address
  */
@@ -150,19 +234,22 @@ export async function approveApiWallet(privateKey: string): Promise<{ success: b
     const { ethers } = await import('ethers');
     
     const cleanPrivateKey = privateKey.startsWith('0x') ? privateKey : `0x${privateKey}`;
-    const wallet = new ethers.Wallet(cleanPrivateKey);
+    const masterWallet = new ethers.Wallet(cleanPrivateKey);
     
-    console.log('🔗 Approving API wallet:', wallet.address);
+    console.log('🔗 Approving API wallet for master account:', masterWallet.address);
     
-    // Create the approve agent action
+    // For simplicity, we'll approve the master wallet as its own API wallet
+    // In production, you might want to use a separate API wallet
     const approveAction = {
       type: "approveAgent",
-      agent: wallet.address // The wallet will approve itself as an agent
+      agent: masterWallet.address // Master account approves itself as an agent
     };
+    
+    console.log('📋 Approving agent action:', approveAction);
     
     const nonce = Date.now();
     
-    // Sign the approve action
+    // Sign the approve action with the master wallet
     const signature = await signOrderAction(approveAction, nonce, privateKey);
     
     const payload = {
@@ -172,6 +259,7 @@ export async function approveApiWallet(privateKey: string): Promise<{ success: b
     };
     
     console.log('📋 Sending API wallet approval to HyperLiquid...');
+    console.log('📋 Payload:', JSON.stringify(payload, null, 2));
     
     const response = await fetch('https://api.hyperliquid.xyz/exchange', {
       method: 'POST',
@@ -179,7 +267,16 @@ export async function approveApiWallet(privateKey: string): Promise<{ success: b
       body: JSON.stringify(payload)
     });
     
-    const result = await response.json();
+    const responseText = await response.text();
+    console.log('📥 Raw API wallet approval response:', response.status, responseText);
+    
+    let result;
+    try {
+      result = JSON.parse(responseText);
+    } catch {
+      result = { error: responseText };
+    }
+    
     console.log('📥 API wallet approval response:', result);
     
     if (response.ok && result.status === "ok") {
@@ -190,7 +287,7 @@ export async function approveApiWallet(privateKey: string): Promise<{ success: b
     } else {
       return {
         success: false,
-        message: `Failed to approve API wallet: ${result.response || result.error || 'Unknown error'}`
+        message: `Failed to approve API wallet: ${result.response || result.error || responseText}`
       };
     }
     
