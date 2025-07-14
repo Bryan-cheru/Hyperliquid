@@ -100,20 +100,16 @@ export const TradingProvider = ({ children }: { children: ReactNode }) => {
         grouping: "na" as const
       };
 
-      // Prepare HyperLiquid order payload for agent wallet
+      // Prepare HyperLiquid order payload for direct account trading
       const nonce = Date.now();
       
-      // For agent wallets, we need to specify the vault address (main account with funds)
-      // TODO: Make this configurable through UI settings
-      // This should be the address of your main HyperLiquid account that has funds
-      // and has approved the agent wallet for trading
-      const vaultAddress = '0x9B7692dBb4b5524353ABE6826CE894Bcc235b7fB'; // Update this to your registered vault address
-      
+      // FIXED: Use direct account trading (no vault needed)
+      // This eliminates the "Vault not registered" error
       const orderPayload = {
         action: orderAction,
         nonce,
-        signature: await signOrderAction(orderAction, nonce, connectedAccount.privateKey, vaultAddress),
-        vaultAddress: vaultAddress // Agent trading for this main account
+        signature: await signOrderAction(orderAction, nonce, connectedAccount.privateKey, undefined), // undefined = direct account
+        vaultAddress: undefined // Direct account trading
       };
 
       // Validate order payload before sending
