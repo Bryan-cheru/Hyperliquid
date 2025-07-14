@@ -1,112 +1,148 @@
 // HyperLiquid signature utilities
 
-// Msgpack encoding functions for action hashing
-function encodeFloat(value: number): Buffer {
-  const buffer = Buffer.allocUnsafe(9);
-  buffer.writeUInt8(0xcb, 0);
-  buffer.writeDoubleBE(value, 1);
-  return buffer;
+// Msgpack encoding functions for action hashing (browser-compatible)
+function encodeFloat(value: number): Uint8Array {
+  const buffer = new ArrayBuffer(9);
+  const view = new DataView(buffer);
+  view.setUint8(0, 0xcb);
+  view.setFloat64(1, value, false); // big-endian
+  return new Uint8Array(buffer);
 }
 
-function encodeInt(value: number): Buffer {
+function encodeInt(value: number): Uint8Array {
   if (value >= 0 && value <= 127) {
-    return Buffer.from([value]);
+    return new Uint8Array([value]);
   } else if (value >= -32 && value < 0) {
-    return Buffer.from([0xe0 + (32 + value)]);
+    return new Uint8Array([0xe0 + (32 + value)]);
   } else if (value >= 0 && value <= 255) {
-    return Buffer.from([0xcc, value]);
+    return new Uint8Array([0xcc, value]);
   } else if (value >= 0 && value <= 65535) {
-    const buffer = Buffer.allocUnsafe(3);
-    buffer.writeUInt8(0xcd, 0);
-    buffer.writeUInt16BE(value, 1);
-    return buffer;
+    const buffer = new ArrayBuffer(3);
+    const view = new DataView(buffer);
+    view.setUint8(0, 0xcd);
+    view.setUint16(1, value, false); // big-endian
+    return new Uint8Array(buffer);
   } else if (value >= 0 && value <= 4294967295) {
-    const buffer = Buffer.allocUnsafe(5);
-    buffer.writeUInt8(0xce, 0);
-    buffer.writeUInt32BE(value, 1);
-    return buffer;
+    const buffer = new ArrayBuffer(5);
+    const view = new DataView(buffer);
+    view.setUint8(0, 0xce);
+    view.setUint32(1, value, false); // big-endian
+    return new Uint8Array(buffer);
   } else {
-    const buffer = Buffer.allocUnsafe(9);
-    buffer.writeUInt8(0xcf, 0);
-    buffer.writeBigUInt64BE(BigInt(value), 1);
-    return buffer;
+    const buffer = new ArrayBuffer(9);
+    const view = new DataView(buffer);
+    view.setUint8(0, 0xcf);
+    view.setBigUint64(1, BigInt(value), false); // big-endian
+    return new Uint8Array(buffer);
   }
 }
 
-function encodeString(value: string): Buffer {
-  const utf8Buffer = Buffer.from(value, 'utf8');
-  const length = utf8Buffer.length;
+function encodeString(value: string): Uint8Array {
+  const utf8Encoder = new TextEncoder();
+  const utf8Bytes = utf8Encoder.encode(value);
+  const length = utf8Bytes.length;
   
   if (length <= 31) {
-    return Buffer.concat([Buffer.from([0xa0 + length]), utf8Buffer]);
+    const result = new Uint8Array(1 + length);
+    result[0] = 0xa0 + length;
+    result.set(utf8Bytes, 1);
+    return result;
   } else if (length <= 255) {
-    return Buffer.concat([Buffer.from([0xd9, length]), utf8Buffer]);
+    const result = new Uint8Array(2 + length);
+    result[0] = 0xd9;
+    result[1] = length;
+    result.set(utf8Bytes, 2);
+    return result;
   } else if (length <= 65535) {
-    const header = Buffer.allocUnsafe(3);
-    header.writeUInt8(0xda, 0);
-    header.writeUInt16BE(length, 1);
-    return Buffer.concat([header, utf8Buffer]);
+    const result = new Uint8Array(3 + length);
+    const view = new DataView(result.buffer);
+    view.setUint8(0, 0xda);
+    view.setUint16(1, length, false); // big-endian
+    result.set(utf8Bytes, 3);
+    return result;
   } else {
-    const header = Buffer.allocUnsafe(5);
-    header.writeUInt8(0xdb, 0);
-    header.writeUInt32BE(length, 1);
-    return Buffer.concat([header, utf8Buffer]);
+    const result = new Uint8Array(5 + length);
+    const view = new DataView(result.buffer);
+    view.setUint8(0, 0xdb);
+    view.setUint32(1, length, false); // big-endian
+    result.set(utf8Bytes, 5);
+    return result;
   }
 }
 
-function encodeBool(value: boolean): Buffer {
-  return Buffer.from([value ? 0xc3 : 0xc2]);
+function encodeBool(value: boolean): Uint8Array {
+  return new Uint8Array([value ? 0xc3 : 0xc2]);
 }
 
-function encodeArray(array: unknown[]): Buffer {
+function encodeArray(array: unknown[]): Uint8Array {
   const length = array.length;
-  let header: Buffer;
+  let header: Uint8Array;
   
   if (length <= 15) {
-    header = Buffer.from([0x90 + length]);
+    header = new Uint8Array([0x90 + length]);
   } else if (length <= 65535) {
-    header = Buffer.allocUnsafe(3);
-    header.writeUInt8(0xdc, 0);
-    header.writeUInt16BE(length, 1);
+    const buffer = new ArrayBuffer(3);
+    const view = new DataView(buffer);
+    view.setUint8(0, 0xdc);
+    view.setUint16(1, length, false); // big-endian
+    header = new Uint8Array(buffer);
   } else {
-    header = Buffer.allocUnsafe(5);
-    header.writeUInt8(0xdd, 0);
-    header.writeUInt32BE(length, 1);
+    const buffer = new ArrayBuffer(5);
+    const view = new DataView(buffer);
+    view.setUint8(0, 0xdd);
+    view.setUint32(1, length, false); // big-endian
+    header = new Uint8Array(buffer);
   }
   
   const encodedItems = array.map(item => encodeValue(item));
-  return Buffer.concat([header, ...encodedItems]);
+  return concatenateUint8Arrays([header, ...encodedItems]);
 }
 
-function encodeMap(obj: Record<string, unknown>): Buffer {
+function encodeMap(obj: Record<string, unknown>): Uint8Array {
   const keys = Object.keys(obj).sort();
   const length = keys.length;
-  let header: Buffer;
+  let header: Uint8Array;
   
   if (length <= 15) {
-    header = Buffer.from([0x80 + length]);
+    header = new Uint8Array([0x80 + length]);
   } else if (length <= 65535) {
-    header = Buffer.allocUnsafe(3);
-    header.writeUInt8(0xde, 0);
-    header.writeUInt16BE(length, 1);
+    const buffer = new ArrayBuffer(3);
+    const view = new DataView(buffer);
+    view.setUint8(0, 0xde);
+    view.setUint16(1, length, false); // big-endian
+    header = new Uint8Array(buffer);
   } else {
-    header = Buffer.allocUnsafe(5);
-    header.writeUInt8(0xdf, 0);
-    header.writeUInt32BE(length, 1);
+    const buffer = new ArrayBuffer(5);
+    const view = new DataView(buffer);
+    view.setUint8(0, 0xdf);
+    view.setUint32(1, length, false); // big-endian
+    header = new Uint8Array(buffer);
   }
   
-  const encodedPairs: Buffer[] = [];
+  const encodedPairs: Uint8Array[] = [];
   for (const key of keys) {
     encodedPairs.push(encodeString(key));
     encodedPairs.push(encodeValue(obj[key]));
   }
   
-  return Buffer.concat([header, ...encodedPairs]);
+  return concatenateUint8Arrays([header, ...encodedPairs]);
 }
 
-function encodeValue(value: unknown): Buffer {
+// Helper function to concatenate Uint8Arrays
+function concatenateUint8Arrays(arrays: Uint8Array[]): Uint8Array {
+  const totalLength = arrays.reduce((sum, arr) => sum + arr.length, 0);
+  const result = new Uint8Array(totalLength);
+  let offset = 0;
+  for (const arr of arrays) {
+    result.set(arr, offset);
+    offset += arr.length;
+  }
+  return result;
+}
+
+function encodeValue(value: unknown): Uint8Array {
   if (value === null) {
-    return Buffer.from([0xc0]);
+    return new Uint8Array([0xc0]);
   } else if (typeof value === 'boolean') {
     return encodeBool(value);
   } else if (typeof value === 'number') {
@@ -126,11 +162,58 @@ function encodeValue(value: unknown): Buffer {
   }
 }
 
-async function msgpackHash(obj: unknown): Promise<string> {
-  // Use dynamic import for browser compatibility
+async function msgpackHash(action: unknown, vaultAddress?: string, nonce?: number): Promise<string> {
   const { ethers } = await import('ethers');
-  const encoded = encodeValue(obj);
-  return ethers.keccak256(encoded);
+  
+  // Use msgpack-lite for exact Python compatibility
+  interface MsgPackLite {
+    encode(obj: unknown): Uint8Array;
+  }
+  
+  let msgpack: MsgPackLite;
+  try {
+    // Import msgpack-lite (exact Python msgpack compatibility)
+    msgpack = await import('msgpack-lite');
+  } catch {
+    throw new Error('msgpack-lite is required for HyperLiquid signing. Please run: npm install msgpack-lite');
+  }
+  
+  // Encode action using msgpack (exactly like Python msgpack.packb)
+  const actionBytes = msgpack.encode(action);
+  
+  // Add nonce (8 bytes, big-endian) - matches Python SDK - browser compatible
+  const nonceArray = new Uint8Array(8);
+  const nonceView = new DataView(nonceArray.buffer);
+  nonceView.setBigUint64(0, BigInt(nonce || Date.now()), false); // false = big-endian
+  
+  // Add vault address handling - matches Python SDK action_hash function - browser compatible
+  let vaultBytes: Uint8Array;
+  if (!vaultAddress) {
+    // None case: add single 0x00 byte
+    vaultBytes = new Uint8Array([0x00]);
+  } else {
+    // Some case: add 0x01 + address bytes
+    const addressBytes = ethers.getBytes(vaultAddress);
+    vaultBytes = new Uint8Array(1 + addressBytes.length);
+    vaultBytes[0] = 0x01;
+    vaultBytes.set(addressBytes, 1);
+  }
+  
+  // expires_after is None in our case, so no additional bytes needed
+  
+  // Combine all data exactly like Python SDK - browser compatible
+  const totalLength = actionBytes.length + nonceArray.length + vaultBytes.length;
+  const combinedData = new Uint8Array(totalLength);
+  
+  let offset = 0;
+  combinedData.set(actionBytes, offset);
+  offset += actionBytes.length;
+  combinedData.set(nonceArray, offset);
+  offset += nonceArray.length;
+  combinedData.set(vaultBytes, offset);
+  
+  // Calculate keccak256 hash
+  return ethers.keccak256(combinedData);
 }
 
 /**
@@ -148,20 +231,38 @@ export async function signOrderAction(action: unknown, nonce: number, privateKey
     console.log('� Agent wallet signing with:', wallet.address);
     console.log('🏛️ Vault address:', vaultAddress || 'none');
     
-    // Create msgpack-based action hash
-    const actionHash = await msgpackHash(action);
+    // Create msgpack-based action hash exactly like HyperLiquid Python SDK
+    const actionHash = await msgpackHash(action, vaultAddress, nonce);
     console.log('🔍 Msgpack action hash:', actionHash);
     
-    // Create signature data by combining action hash and nonce
-    const signatureData = ethers.solidityPackedKeccak256(
-      ['bytes32', 'uint64'],
-      [actionHash, nonce]
-    );
+    // Create phantom agent exactly like HyperLiquid Python SDK
+    const phantomAgent = {
+      source: 'a', // 'a' for mainnet, 'b' for testnet 
+      connectionId: actionHash // Direct action hash, not a secondary hash
+    };
     
-    console.log('🔍 Final signature data:', signatureData);
+    console.log('🔍 Phantom agent:', phantomAgent);
     
-    // Sign the data directly (not EIP-712 for agent wallets)
-    const signature = await wallet.signMessage(ethers.getBytes(signatureData));
+    // EIP-712 domain for HyperLiquid
+    const domain = {
+      chainId: 1337,
+      name: 'Exchange',
+      verifyingContract: '0x0000000000000000000000000000000000000000',
+      version: '1'
+    };
+
+    // EIP-712 types for HyperLiquid Agent
+    const types = {
+      Agent: [
+        { name: 'source', type: 'string' },
+        { name: 'connectionId', type: 'bytes32' }
+      ]
+    };
+    
+    console.log('🔍 Signing with EIP-712...');
+    
+    // Sign using EIP-712 typed data (HyperLiquid's expected format)
+    const signature = await wallet.signTypedData(domain, types, phantomAgent);
     const splitSig = ethers.Signature.from(signature);
     
     console.log('✅ Order signed successfully');
@@ -171,8 +272,8 @@ export async function signOrderAction(action: unknown, nonce: number, privateKey
       v: splitSig.v
     });
     
-    // Verify the signature recovery
-    const recovered = ethers.verifyMessage(ethers.getBytes(signatureData), signature);
+    // Verify the signature recovery using EIP-712
+    const recovered = ethers.verifyTypedData(domain, types, phantomAgent, signature);
     console.log('🔍 Signature verification:', {
       signerWallet: wallet.address,
       recoveredWallet: recovered,

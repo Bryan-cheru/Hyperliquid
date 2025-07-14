@@ -197,7 +197,8 @@ const Account = ({ acc, id, getId, getName }: AccountProps) => {
         }
 
         setConnectionStatus("connected");
-        console.log('Trading enabled with private key configured');
+        console.log('✅ Agent wallet connected successfully with Python-compatible signing');
+        console.log('🔐 Signature verification should now work correctly with HyperLiquid');
         
         // Set connected account for trading context with updated data
         const connectedAccountData: ConnectedAccount = {

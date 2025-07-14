@@ -130,9 +130,28 @@ function encodeValue(value) {
   }
 }
 
-function msgpackHash(obj) {
-  const encoded = encodeValue(obj);
-  return ethers.keccak256(encoded);
+function msgpackHash(obj, vaultAddress, nonce) {
+  // Step 1: Encode the action with msgpack
+  const actionData = encodeValue(obj);
+  
+  // Step 2: Add nonce as 8 bytes big-endian (required for HyperLiquid)
+  const nonceBuffer = Buffer.allocUnsafe(8);
+  nonceBuffer.writeBigUInt64BE(BigInt(nonce), 0);
+  
+  // Step 3: Add vault address flag and bytes (HyperLiquid format)
+  let vaultBuffer;
+  if (!vaultAddress) {
+    vaultBuffer = Buffer.from([0x00]); // null vault
+  } else {
+    const addressBytes = Buffer.from(vaultAddress.slice(2), 'hex'); // remove 0x
+    vaultBuffer = Buffer.concat([Buffer.from([0x01]), addressBytes]); // has vault
+  }
+  
+  // Step 4: Concatenate all data exactly like HyperLiquid Python SDK
+  const totalData = Buffer.concat([actionData, nonceBuffer, vaultBuffer]);
+  
+  // Step 5: Keccak hash the concatenated data
+  return ethers.keccak256(totalData);
 }
 
 async function testTopLevelVaultAddress() {
@@ -168,12 +187,13 @@ async function testTopLevelVaultAddress() {
     console.log('\n📋 Action (clean):');
     console.log(JSON.stringify(action, null, 2));
     
-    // Create msgpack hash
-    const actionHash = msgpackHash(action);
-    console.log('\n🔍 Action hash:', actionHash);
-    
     // Sign
     const nonce = Date.now();
+    
+    // Create msgpack hash with nonce and vault address
+    const actionHash = msgpackHash(action, VAULT_ADDRESS, nonce);
+    console.log('\n🔍 Action hash:', actionHash);
+    
     const signatureData = ethers.solidityPackedKeccak256(
       ['bytes32', 'uint64'],
       [actionHash, nonce]

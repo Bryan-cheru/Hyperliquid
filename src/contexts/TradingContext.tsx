@@ -1,7 +1,7 @@
 import { createContext, useState } from "react";
 import type { ReactNode } from "react";
 import { signOrderAction } from "../utils/hyperLiquidSigning";
-import { validateOrderPayload, logOrderDetails, showLiveTradingRequirements } from "../utils/hyperLiquidHelpers";
+import { validateOrderPayload, logOrderDetails } from "../utils/hyperLiquidHelpers";
 
 // Types for trading account and connection
 export interface ConnectedAccount {
@@ -104,7 +104,10 @@ export const TradingProvider = ({ children }: { children: ReactNode }) => {
       const nonce = Date.now();
       
       // For agent wallets, we need to specify the vault address (main account with funds)
-      const vaultAddress = '0x9B7692dBb4b5524353ABE6826CE894Bcc235b7fB'; // Your main account address
+      // TODO: Make this configurable through UI settings
+      // This should be the address of your main HyperLiquid account that has funds
+      // and has approved the agent wallet for trading
+      const vaultAddress = '0x9B7692dBb4b5524353ABE6826CE894Bcc235b7fB'; // Update this to your registered vault address
       
       const orderPayload = {
         action: orderAction,
@@ -122,8 +125,8 @@ export const TradingProvider = ({ children }: { children: ReactNode }) => {
       // Log detailed order information
       logOrderDetails(orderPayload);
       
-      // Using real EIP-712 signing for HyperLiquid integration
-      console.log('� Order signed with real signature for live trading');
+      // Using Python-compatible msgpack and EIP-712 signing for HyperLiquid integration
+      console.log('✅ Order signed with Python-compatible msgpack and EIP-712 signature');
       
       // Send order to HyperLiquid API
       try {
@@ -205,13 +208,47 @@ export const TradingProvider = ({ children }: { children: ReactNode }) => {
           const errorMsg = result.response || result.message || result.error || 'Unknown error from HyperLiquid';
           console.error('❌ Order rejected by HyperLiquid:', errorMsg);
           
-          // Specific handling for signature errors
-          if (typeof errorMsg === 'string' && errorMsg.includes('Unable to recover signer')) {
-            showLiveTradingRequirements();
-            return {
-              success: false,
-              message: '🔒 Signature Error: HyperLiquid cannot verify the transaction signature. This is expected in demo mode - implement real EIP-712 signing for live trading.'
-            };
+          // Handle specific error types
+          if (typeof errorMsg === 'string') {
+            // Vault configuration errors
+            if (errorMsg.includes('Vault not registered')) {
+              return {
+                success: false,
+                message: `🏦 Vault Configuration Error: The vault address (${connectedAccount.publicKey}) is not registered with HyperLiquid. Please register your vault address in the HyperLiquid app first.`
+              };
+            }
+            
+            // Agent wallet permission errors
+            if (errorMsg.includes('does not exist') || errorMsg.includes('not approved') || errorMsg.includes('agent')) {
+              return {
+                success: false,
+                message: `🔐 Agent Wallet Error: Your agent wallet needs to be approved by the main account. Go to HyperLiquid app → Settings → API Keys and approve this agent wallet for trading.`
+              };
+            }
+            
+            // Insufficient funds errors
+            if (errorMsg.includes('insufficient') || errorMsg.includes('balance') || errorMsg.includes('margin')) {
+              return {
+                success: false,
+                message: `💰 Insufficient Funds: Not enough balance or margin to place this order. Check your account balance in HyperLiquid.`
+              };
+            }
+            
+            // Asset or market errors
+            if (errorMsg.includes('asset') || errorMsg.includes('market') || errorMsg.includes('trading')) {
+              return {
+                success: false,
+                message: `📊 Market Error: ${errorMsg}. The asset may not be available for trading or market may be closed.`
+              };
+            }
+            
+            // Legacy signature error handling (should not occur with fixed implementation)
+            if (errorMsg.includes('Unable to recover signer')) {
+              return {
+                success: false,
+                message: '🔒 Signature Error: HyperLiquid cannot verify the transaction signature. This should not happen with the fixed implementation - please check your setup.'
+              };
+            }
           }
           
           return {
@@ -228,21 +265,21 @@ export const TradingProvider = ({ children }: { children: ReactNode }) => {
           if (apiError.message.includes('signature') || apiError.message.includes('401')) {
             return {
               success: false,
-              message: '🔒 Signature validation failed. HyperLiquid requires proper EIP-712 signatures. Install ethers.js and implement real signing to enable live trading.'
+              message: '🔒 Authentication failed. Check your private key and agent wallet setup. With the fixed implementation, signature issues should be rare.'
             };
           }
           
           if (apiError.message.includes('fetch')) {
             return {
               success: false,
-              message: '🌐 Network error: Unable to connect to HyperLiquid API'
+              message: '🌐 Network error: Unable to connect to HyperLiquid API. Check your internet connection.'
             };
           }
           
           if (apiError.message.includes('JSON')) {
             return {
               success: false,
-              message: '📄 Invalid response from HyperLiquid API'
+              message: '📄 Invalid response from HyperLiquid API. The service may be temporarily unavailable.'
             };
           }
           
