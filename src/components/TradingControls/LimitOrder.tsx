@@ -4,8 +4,8 @@ import { type Type } from "./Market&Limit/Market";
 
 export const LimitOrder = () => {
 
-    const [leverage, setLeverage] = useState<number[] | undefined>(undefined);
-    const [value, setValue] = useState<number[] | undefined>(undefined);
+    const [leverage, setLeverage] = useState<number[]>([0]);
+    const [value, setValue] = useState<number[]>([0]);
     const [type, setType] = useState<Type>("Limit");
 
   return (
@@ -15,7 +15,7 @@ export const LimitOrder = () => {
               <input type="number" placeholder="Enter price" className={`orderInput`} />
           </div>
           <div className="flex flex-col">
-              <p className="text-[rgba(255,255,255,0.70)] text-xs">Position Size: <span className="text-white">%{value}</span></p>
+              <p className="text-[rgba(255,255,255,0.70)] text-xs">Position Size: <span className="text-white">%{value[0] ?? 0}</span></p>
               <div className="flex justify-between items-center gap-5">
                   <Slider.Root value={value} min={0} max={100} step={1} onValueChange={setValue} className="relative flex items-center select-none touch-none w-full h-8">
                       <Slider.Track className="bg-[#E5E5E5] relative grow rounded-full h-2">
@@ -31,11 +31,11 @@ export const LimitOrder = () => {
                   <input
                       type="number"
                       placeholder="Enter size"
-                      value={value?.[0] ?? ""}
+                      value={value[0] ?? 0}
                       onChange={(e) => {
                           const raw = e.target.value;
                           if (raw === "") {
-                              setValue(undefined);
+                              setValue([0]);
                           } else {
                               const num = Number(raw);
                               if (!isNaN(num) && num >= 0 && num <= 100) {
@@ -49,7 +49,7 @@ export const LimitOrder = () => {
           </div>
 
           <div className="border-t border-[#373A45] pt-[19px]">
-              <p className="text-[rgba(255,255,255,0.70)] text-xs">Stop Loss: <span className="text-white">{leverage?.[0] ?? ""}%</span></p>
+              <p className="text-[rgba(255,255,255,0.70)] text-xs">Stop Loss: <span className="text-white">{leverage[0] ?? 0}%</span></p>
               <div className="flex items-center gap-5">
                   <Slider.Root value={leverage} onValueChange={setLeverage} className="relative flex w-full items-center h-5">
                       <Slider.Track className="bg-[#E5E5E5] relative grow rounded-full h-2">
@@ -65,12 +65,12 @@ export const LimitOrder = () => {
                   <input
                       type="number"
                       placeholder="Enter size"
-                      value={leverage?.[0] ?? ""}
+                      value={leverage[0] ?? 0}
                       onChange={(e) => {
                           const raw = e.target.value;
 
                           if (raw === "") {
-                              setLeverage(undefined);
+                              setLeverage([0]);
                           } else {
                               const num = Number(raw);
                               if (!isNaN(num) && num >= 0 && num <= 100) {

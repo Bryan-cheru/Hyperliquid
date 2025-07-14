@@ -8,7 +8,7 @@ interface Props {
 
 // LimitChaser component allows toggling limit mode and configuring price limits
 const LimitChaser = ({ clicked, setClicked }: Props) => {
-    const [value, setValue] = useState<number[] | undefined>(undefined); // Slider value (0–500)
+    const [value, setValue] = useState<number[]>([0]); // Slider value (0–500)
     const [filled, setFilled] = useState<boolean>(false); // Toggle for "Filled or Cancel"
 
     return (

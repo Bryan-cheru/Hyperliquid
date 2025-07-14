@@ -10,8 +10,8 @@ const Market = () => {
 
     const [leverage, setLeverage] = useState(10);
     const [value2, setValue2] = useState(10);
-    const [value, setValue] = useState<number[] | undefined>(undefined);
-    const [value3, setValue3] = useState<number[] | undefined>(undefined);
+    const [value, setValue] = useState<number[]>([0]);
+    const [value3, setValue3] = useState<number[]>([0]);
     const [value4, setValue4] = useState(10);
     
     const [clickedSplit, setClickedSplit] = useState<boolean>(false);
@@ -55,7 +55,7 @@ const Market = () => {
                 
                 <div className="flex flex-col gap-[21.1px]">
                     <div className="flex flex-col border-b border-[#373A45] pb-6">
-                        <p className="text-[rgba(255,255,255,0.70)] text-xs">Position Size: <span className="text-white">%{value3}</span></p>
+                        <p className="text-[rgba(255,255,255,0.70)] text-xs">Position Size: <span className="text-white">%{value3[0] ?? 0}</span></p>
                         <div className="flex justify-between items-center gap-5">
                             <Slider.Root value={value3} min={0} max={100} step={1} onValueChange={setValue3} className="relative flex items-center w-full h-5">
                                 <Slider.Track className="bg-[#E5E5E5] relative grow rounded-full h-2">
@@ -71,12 +71,12 @@ const Market = () => {
                             <input
                                 type="number"
                                 placeholder="Enter size"
-                                value={value3?.[0] ?? ""}
+                                value={value3[0] ?? 0}
                                 onChange={(e) => {
                                     const raw = e.target.value;
 
                                     if (raw === "") {
-                                        setValue3(undefined);
+                                        setValue3([0]);
                                     } else {
                                         const num = Number(raw);
                                         if (!isNaN(num) && num >= 0 && num <= 100) {
@@ -90,7 +90,7 @@ const Market = () => {
                     </div>
 
                     <div className="flex flex-col">
-                        <p className="text-[rgba(255,255,255,0.70)] text-xs">Stop Loss: <span className="text-white">{value?.[0] ?? ""}%</span></p>
+                        <p className="text-[rgba(255,255,255,0.70)] text-xs">Stop Loss: <span className="text-white">{value[0] ?? 0}%</span></p>
                         <div className="flex justify-between items-center gap-5">
                             <Slider.Root value={value} onValueChange={setValue} className="relative flex items-center w-full h-5">
                                 <Slider.Track className="bg-[#E5E5E5] relative grow rounded-full h-2">
@@ -106,12 +106,12 @@ const Market = () => {
                             <input
                                 type="number"
                                 placeholder="Enter size"
-                                value={value?.[0]}
+                                value={value[0] ?? 0}
                                 onChange={(e) => {
                                     const raw = e.target.value;
 
                                     if (raw === "") {
-                                        setValue(undefined);
+                                        setValue([0]);
                                     } else {
                                         const num = Number(raw);
                                         if (!isNaN(num) && num >= 0 && num <= 100) {

@@ -3,6 +3,7 @@ import AnimateHeight from "react-animate-height";
 import { motion } from "framer-motion";
 import { useTrading } from "../../hooks/useTrading";
 import type { ConnectedAccount } from "../../contexts/TradingContext";
+import { verifyPrivateKeyToAddress, approveApiWallet } from "../../utils/hyperLiquidSigning";
 
 // Type definition for account data
 interface AccountInfo {
@@ -73,30 +74,47 @@ const Account = ({ acc, id, getId, getName }: AccountProps) => {
   // Function to handle HyperLiquid API connection and fetch real data
   const handleConnect = async () => {
     if (!publicKey.trim() || !privateKey.trim()) {
-      setErrorMessage("Please provide both wallet address and private key for trading access");
+      setErrorMessage("Please provide both wallet address and private key");
       setConnectionStatus("error");
       return;
     }
 
-    // Validate wallet address format
-    if (!publicKey.trim().match(/^0x[a-fA-F0-9]{40}$/)) {
-      setErrorMessage("Invalid wallet address format. Should be 0x followed by 40 hexadecimal characters");
-      setConnectionStatus("error");
-      return;
-    }
-
-    // Validate private key format (basic check)
-    if (!privateKey.trim().match(/^(0x)?[a-fA-F0-9]{64}$/)) {
-      setErrorMessage("Invalid private key format. Should be 64 hexadecimal characters");
-      setConnectionStatus("error");
-      return;
-    }
+    console.log('🔗 Connecting with user credentials...');
+    console.log('  Wallet address:', publicKey.trim());
+    console.log('  Private key provided:', '✓');
 
     setIsConnecting(true);
     setErrorMessage("");
     setConnectionStatus("idle");
 
     try {
+      // First, verify that the private key actually corresponds to the provided wallet address
+      console.log('🔍 Verifying private key matches wallet address...');
+      const verification = await verifyPrivateKeyToAddress(privateKey.trim(), publicKey.trim());
+      
+      if (!verification.isValid) {
+        console.error('❌ Private key verification failed:', verification.error);
+        setErrorMessage(`Private key mismatch: ${verification.error}`);
+        setConnectionStatus("error");
+        setIsConnecting(false);
+        return;
+      }
+      
+      console.log('✅ Private key verification successful');
+      console.log('  Expected address:', publicKey.trim());
+      console.log('  Derived address:', verification.actualAddress);
+
+      // Next, approve the wallet as an API wallet on HyperLiquid
+      console.log('🔗 Approving wallet as API wallet on HyperLiquid...');
+      const approvalResult = await approveApiWallet(privateKey.trim());
+      
+      if (!approvalResult.success) {
+        console.warn('⚠️ API wallet approval failed, but continuing with connection attempt');
+        console.warn('  Approval error:', approvalResult.message);
+        // Don't return here - the wallet might already be approved
+      } else {
+        console.log('✅ API wallet approved successfully');
+      }
       // Fetch user's account data from HyperLiquid
       const accountResponse = await fetch('https://api.hyperliquid.xyz/info', {
         method: 'POST',
@@ -324,9 +342,9 @@ const Account = ({ acc, id, getId, getName }: AccountProps) => {
               onClick={e => e.stopPropagation()}
             />
             <div className="text-xs text-gray-400">
-              Both keys required for live data + trading functionality
+              Enter your wallet address and private key for trading
             </div>
-            
+
             {/* Connection status indicator */}
             {connectionStatus === "connected" && (
               <div className="flex items-center gap-2 text-green-400 text-xs">
