@@ -67,22 +67,12 @@ const ButtonWrapper = ({ tradingParams }: ButtonWrapperProps) => {
   };
 
   const handleCloseAll = async () => {
-    if (!agentAccount) {
-      setStatusMessage("Agent account required for trading operations");
-      setTimeout(() => setStatusMessage(""), 3000);
-      return;
-    }
     const result = await closeAllPositions();
     setStatusMessage(result.message);
     setTimeout(() => setStatusMessage(""), 3000);
   };
 
   const handleCancelAll = async () => {
-    if (!agentAccount) {
-      setStatusMessage("Agent account required for trading operations");
-      setTimeout(() => setStatusMessage(""), 3000);
-      return;
-    }
     const result = await cancelAllOrders();
     setStatusMessage(result.message);
     setTimeout(() => setStatusMessage(""), 3000);

@@ -434,14 +434,14 @@ export const TradingProvider = ({ children }: { children: ReactNode }) => {
 
   // Close all open positions
   const closeAllPositions = async (): Promise<{ success: boolean; message: string }> => {
-    if (!connectedAccount) {
-      return { success: false, message: "No account connected" };
+    if (!agentAccount) {
+      return { success: false, message: "No agent account configured for trading operations" };
     }
 
     setIsTrading(true);
     
     try {
-      console.log('Closing all positions for account:', connectedAccount.publicKey);
+      console.log('Closing all positions for agent account:', agentAccount.publicKey);
       
       // First, fetch all open positions
       const positionsResponse = await fetch('https://api.hyperliquid.xyz/info', {
@@ -449,7 +449,7 @@ export const TradingProvider = ({ children }: { children: ReactNode }) => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           type: "clearinghouseState",
-          user: connectedAccount.publicKey
+          user: agentAccount.publicKey
         })
       });
 
@@ -492,7 +492,7 @@ export const TradingProvider = ({ children }: { children: ReactNode }) => {
           const closeOrderPayload = {
             action: closeAction,
             nonce: Date.now() + closedCount, // Unique nonce for each order
-            signature: await signOrderAction(closeAction, Date.now() + closedCount, connectedAccount.privateKey)
+            signature: await signOrderAction(closeAction, Date.now() + closedCount, agentAccount.privateKey)
           };
           
           try {
@@ -541,14 +541,14 @@ export const TradingProvider = ({ children }: { children: ReactNode }) => {
 
   // Cancel all open orders
   const cancelAllOrders = async (): Promise<{ success: boolean; message: string }> => {
-    if (!connectedAccount) {
-      return { success: false, message: "No account connected" };
+    if (!agentAccount) {
+      return { success: false, message: "No agent account configured for trading operations" };
     }
 
     setIsTrading(true);
     
     try {
-      console.log('Cancelling all orders for account:', connectedAccount.publicKey);
+      console.log('Cancelling all orders for agent account:', agentAccount.publicKey);
       
       // First, fetch all open orders
       const ordersResponse = await fetch('https://api.hyperliquid.xyz/info', {
@@ -556,7 +556,7 @@ export const TradingProvider = ({ children }: { children: ReactNode }) => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           type: "openOrders",
-          user: connectedAccount.publicKey
+          user: agentAccount.publicKey
         })
       });
 
@@ -584,7 +584,7 @@ export const TradingProvider = ({ children }: { children: ReactNode }) => {
           cancels: cancels
         },
         nonce: Date.now(),
-        signature: await signOrderAction({ type: "cancel", cancels: cancels }, Date.now(), connectedAccount.privateKey)
+        signature: await signOrderAction({ type: "cancel", cancels: cancels }, Date.now(), agentAccount.privateKey)
       };
       
       try {

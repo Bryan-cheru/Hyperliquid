@@ -10,7 +10,22 @@ interface Props {
 }
 
 const TradingControls = ({ setType, type }: Props) => {
-  const { connectedAccount, agentAccount } = useTrading();
+  const { connectedAccount, agentAccount, setAgentAccount } = useTrading();
+
+  const handleAddAgentAccount = () => {
+    // For now, create a simple test agent account
+    // In a real implementation, this would open a modal for entering agent details
+    const testAgentAccount = {
+      accountId: 1,
+      accountName: "Trading Agent #1",
+      publicKey: "0x742d35Cc...TestAgent", // Placeholder
+      privateKey: "test_private_key_placeholder", // In real app, this would be securely handled
+      isActive: true,
+      connectionStatus: "connected" as const
+    };
+    
+    setAgentAccount(testAgentAccount);
+  };
 
   return (
     <section className="bg-[#181C29] min-h-screen h-fit robot overflow-auto">
@@ -51,7 +66,10 @@ const TradingControls = ({ setType, type }: Props) => {
                   <div className="text-gray-400 text-[10px] mt-1">
                     Add an agent account to enable trading
                   </div>
-                  <button className="mt-2 px-3 py-1 bg-orange-600 hover:bg-orange-700 text-white text-[10px] rounded transition-colors">
+                  <button 
+                    onClick={handleAddAgentAccount}
+                    className="mt-2 px-3 py-1 bg-orange-600 hover:bg-orange-700 text-white text-[10px] rounded transition-colors"
+                  >
                     Add Agent Account
                   </button>
                 </div>

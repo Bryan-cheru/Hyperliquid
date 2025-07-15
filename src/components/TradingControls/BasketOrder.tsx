@@ -9,7 +9,7 @@ interface BasketOrderProps {
 }
 
 const BasketOrder: React.FC<BasketOrderProps> = ({ clicked, setClicked }) => {
-  const { connectedAccount, getPrice } = useTrading();
+  const { connectedAccount, agentAccount, getPrice } = useTrading();
   const [baskets, setBaskets] = useState<BasketOrderConfig[]>([]);
   const [activeTab, setActiveTab] = useState<'create' | 'manage'>('create');
   
@@ -72,8 +72,13 @@ const BasketOrder: React.FC<BasketOrderProps> = ({ clicked, setClicked }) => {
   };
 
   const handleCreateBasket = async () => {
+    if (!agentAccount) {
+      alert('Please add an agent account first to enable basket trading');
+      return;
+    }
+
     if (!connectedAccount) {
-      alert('Please connect an account first');
+      alert('Please connect a master account first to view market data');
       return;
     }
 
@@ -428,8 +433,9 @@ const BasketOrder: React.FC<BasketOrderProps> = ({ clicked, setClicked }) => {
             {/* Create Button */}
             <button
               onClick={handleCreateBasket}
-              disabled={!connectedAccount}
+              disabled={!agentAccount}
               className="w-full py-3 bg-[#F0B90B] text-black font-bold rounded hover:bg-[#E6A509] disabled:opacity-50 disabled:cursor-not-allowed"
+              title={!agentAccount ? "Add an agent account to enable basket trading" : ""}
             >
               Create & Execute Basket Order
             </button>
