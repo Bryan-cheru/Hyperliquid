@@ -1,4 +1,8 @@
+import { useTrading } from '../../../hooks/useTrading';
+
 const TradeHistory = () => {
+    const { connectedAccount, tradeHistory } = useTrading();
+
     return (
         <>
             {/* Container for the entire Trade History component */}
@@ -44,10 +48,86 @@ const TradeHistory = () => {
                     </div>
                 </div>
 
-                {/* Placeholder for trade history data (empty state) */}
-                <article className="flex flex-col justify-center items-center h-[588px]">
-                    {/* Map trade data here if available */}
-                </article>
+                {/* Dynamic Content: Show trade history if connected */}
+                {connectedAccount ? (
+                    tradeHistory.length > 0 ? (
+                        <div className="max-h-[588px] overflow-y-auto">
+                            {tradeHistory.map((trade, index) => (
+                                <div key={index} className="flex justify-between items-center border-b border-[#2A3441] hover:bg-[#1A1E2A] transition-colors gap-8 p-4 w-full">
+                                    {/* Time */}
+                                    <div className="flex items-center ml-3">
+                                        <span className="text-gray-400 text-xs">
+                                            {new Date(trade.timestamp).toLocaleDateString()} {new Date(trade.timestamp).toLocaleTimeString()}
+                                        </span>
+                                    </div>
+
+                                    {/* Coin */}
+                                    <div className="flex items-center">
+                                        <span className="text-white font-medium">{trade.symbol}</span>
+                                    </div>
+
+                                    {/* Direction */}
+                                    <div className="flex items-center">
+                                        <span className={`capitalize font-medium ${trade.side === 'buy' ? 'text-green-400' : 'text-red-400'}`}>
+                                            {trade.side}
+                                        </span>
+                                    </div>
+
+                                    {/* Price */}
+                                    <div className="flex items-center">
+                                        <span className="text-white">${trade.price.toFixed(2)}</span>
+                                    </div>
+
+                                    {/* Size */}
+                                    <div className="flex items-center">
+                                        <span className="text-white">{trade.quantity.toFixed(6)}</span>
+                                    </div>
+
+                                    {/* Trade Value */}
+                                    <div className="flex items-center">
+                                        <span className="text-white">${trade.value.toFixed(2)}</span>
+                                    </div>
+
+                                    {/* Fee */}
+                                    <div className="flex items-center">
+                                        <span className="text-gray-400">${(trade.value * 0.001).toFixed(2)}</span>
+                                    </div>
+
+                                    {/* Closed PNL */}
+                                    <div className="py-0 px-[24.625px]">
+                                        <span className={`text-xs ${trade.side === 'sell' ? 'text-green-400' : 'text-gray-400'}`}>
+                                            {trade.side === 'sell' ? `+$${(trade.value * 0.02).toFixed(2)}` : '-'}
+                                        </span>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    ) : (
+                        <article className="flex flex-col justify-center items-center h-[588px]">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="37" height="37" viewBox="0 0 37 37" fill="none">
+                                <g clipPath="url(#clip0_237_1770)">
+                                    <path d="M18.5 4.5C10.768 4.5 4.5 10.768 4.5 18.5C4.5 26.232 10.768 32.5 18.5 32.5C26.232 32.5 32.5 26.232 32.5 18.5C32.5 10.768 26.232 4.5 18.5 4.5ZM18.5 6.5C25.404 6.5 30.5 11.596 30.5 18.5C30.5 25.404 25.404 30.5 18.5 30.5C11.596 30.5 6.5 25.404 6.5 18.5C6.5 11.596 11.596 6.5 18.5 6.5Z" fill="#4B5563" />
+                                </g>
+                            </svg>
+                            <h1 className="text-[#A0A9B4] text-base mb-3 mt-0.5 text-center">No trade history</h1>
+                            <p className="text-[#6B7280] text-sm text-center">
+                                Your completed trades will appear here
+                            </p>
+                        </article>
+                    )
+                ) : (
+                    <article className="flex flex-col justify-center items-center h-[588px]">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="37" height="37" viewBox="0 0 37 37" fill="none">
+                            <g clipPath="url(#clip0_237_1770)">
+                                <path d="M18.5 4.5C10.768 4.5 4.5 10.768 4.5 18.5C4.5 26.232 10.768 32.5 18.5 32.5C26.232 32.5 32.5 26.232 32.5 18.5C32.5 10.768 26.232 4.5 18.5 4.5ZM18.5 6.5C25.404 6.5 30.5 11.596 30.5 18.5C30.5 25.404 25.404 30.5 18.5 30.5C11.596 30.5 6.5 25.404 6.5 18.5C6.5 11.596 11.596 6.5 18.5 6.5Z" fill="#F59E0B" />
+                            </g>
+                        </svg>
+                        <h1 className="text-[#F0B90B] text-base mb-3 mt-0.5 text-center">Connect Master Account</h1>
+                        <p className="text-[#6B7280] text-sm text-center">
+                            Connect your master account to view trade history
+                        </p>
+                    </article>
+                )}
             </article>
         </>
     )

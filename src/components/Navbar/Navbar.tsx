@@ -1,8 +1,23 @@
+import { useState } from 'react';
+import { useTrading } from '../../hooks/useTrading';
+import ConnectionModal from '../ConnectionModal/ConnectionModal';
+
 interface Props {
     accNum: number;
 }
 
 const Navbar = ({ accNum }: Props) => {
+  const { connectedAccount, setConnectedAccount, openOrders, positions } = useTrading();
+  const [showConnectionModal, setShowConnectionModal] = useState(false);
+
+  const handleDisconnect = () => {
+    if (confirm('Are you sure you want to disconnect your trading account?')) {
+      setConnectedAccount(null);
+    }
+  };
+
+  // Calculate total PnL from positions
+  const totalPnL = positions.reduce((sum, pos) => sum + (pos.pnl || 0), 0);
 
   return (
       <nav className="bg-[#252930] w-full">
@@ -20,25 +35,66 @@ const Navbar = ({ accNum }: Props) => {
                   <h1 className="text-[#F0B90B] text-[29.6px] font-extrabold">Hyper Max</h1>
               </div>
 
-              <div className="flex gap-8 mr-3">
-                  <div className="flex gap-1.5 items-center">
-                      <div className="bg-[#00FF4D] rounded-full w-[9px] h-[9px]"></div>
-                      <p className="text-base text-[#FBF9F9]">Connected</p>
-                  </div>
+              <div className="flex gap-8 mr-3 items-center">
+                  {connectedAccount ? (
+                    <>
+                      {/* Connection Status */}
+                      <div className="flex gap-1.5 items-center">
+                          <div className="bg-[#00FF4D] rounded-full w-[9px] h-[9px]"></div>
+                          <p className="text-base text-[#FBF9F9]">Connected</p>
+                          <button
+                            onClick={handleDisconnect}
+                            className="ml-2 text-xs text-gray-400 hover:text-red-400 transition-colors"
+                            title="Disconnect account"
+                          >
+                            ✕
+                          </button>
+                      </div>
 
-                  <div>
-                      <p className="text-[#FBF9F9] text-base">Active Orders: <span className="text-white font-bold">23</span></p>
-                  </div>
+                      {/* Active Orders */}
+                      <div>
+                          <p className="text-[#FBF9F9] text-base">Active Orders: <span className="text-white font-bold">{openOrders.length}</span></p>
+                      </div>
 
-                  <div>
-                      <p className="text-base text-[#FBF9F9]">Total PnL: <span className="font-bold text-[rgba(0,255,76,0.80)]">+$1,247.83</span></p>
-                  </div>
+                      {/* Total PnL */}
+                      <div>
+                          <p className="text-base text-[#FBF9F9]">Total PnL: 
+                            <span className={`font-bold ${totalPnL >= 0 ? 'text-[rgba(0,255,76,0.80)]' : 'text-red-400'}`}>
+                              {totalPnL >= 0 ? '+' : ''}${totalPnL.toFixed(2)}
+                            </span>
+                          </p>
+                      </div>
 
-                  <div>
-                      <p className="text-base text-[#FBF9F9]">Accounts: <span className="font-bold text-white">{accNum}/10</span></p>
-                  </div>
+                      {/* Account Info */}
+                      <div>
+                          <p className="text-base text-[#FBF9F9]">Account: <span className="font-bold text-white">{connectedAccount.accountName}</span></p>
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      {/* Disconnected Status */}
+                      <div className="flex gap-1.5 items-center">
+                          <div className="bg-red-500 rounded-full w-[9px] h-[9px]"></div>
+                          <p className="text-base text-gray-400">Not Connected</p>
+                      </div>
+
+                      {/* Connect Button */}
+                      <button
+                        onClick={() => setShowConnectionModal(true)}
+                        className="px-4 py-2 bg-[#F0B90B] text-black font-semibold rounded-md hover:bg-[#D4A509] transition-colors"
+                      >
+                        Connect Master Account
+                      </button>
+                    </>
+                  )}
               </div>
         </div>
+
+        {/* Connection Modal */}
+        <ConnectionModal 
+          isOpen={showConnectionModal} 
+          onClose={() => setShowConnectionModal(false)} 
+        />
     </nav>
   )
 }
