@@ -3,6 +3,7 @@ import { useState } from "react";
 import Profits from "../Profits";
 import Leverage from "../Leverage/Leverage";
 import ButtonWrapper from "../ButtonWrapper";
+import BasketOrder from "../BasketOrder";
 
 export type Type = "Limit" | "Market";
 
@@ -31,6 +32,7 @@ const Market = () => {
     
     const [clickedSplit, setClickedSplit] = useState<boolean>(false);
     const [type, setType] = useState<Type>("Market");
+    const [clickedBasket, setClickedBasket] = useState<boolean>(false);
     
     // Additional state for limit order inputs
     const [triggerPrice, setTriggerPrice] = useState<number>(0);
@@ -295,6 +297,10 @@ const Market = () => {
                                   <span>Upper band</span>
                               </div>
                           </div>
+            
+            {/* Basket Order Component */}
+            <BasketOrder clicked={clickedBasket} setClicked={setClickedBasket} />
+            
             <ButtonWrapper tradingParams={tradingParams} />
         </div>
     )
