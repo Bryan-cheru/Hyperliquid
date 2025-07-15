@@ -1,7 +1,8 @@
-import { createContext, useState } from "react";
+import { createContext, useState, useEffect, useCallback, useContext } from "react";
 import type { ReactNode } from "react";
 import { signOrderAction } from "../utils/hyperLiquidSigning";
 import { validateOrderPayload, logOrderDetails } from "../utils/hyperLiquidHelpers";
+import { marketDataService, type MarketPrice, type TradeHistoryItem, type OpenOrder, type Position } from "../utils/marketDataService";
 
 // Types for trading account and connection
 export interface ConnectedAccount {
@@ -44,6 +45,19 @@ interface TradingContextType {
   executeOrder: (order: TradingOrder) => Promise<{ success: boolean; message: string; orderId?: string }>;
   closeAllPositions: () => Promise<{ success: boolean; message: string }>;
   cancelAllOrders: () => Promise<{ success: boolean; message: string }>;
+  
+  // Market data
+  marketPrices: Map<string, MarketPrice>;
+  tradeHistory: TradeHistoryItem[];
+  openOrders: OpenOrder[];
+  positions: Position[];
+  
+  // Data refresh functions
+  refreshMarketData: () => Promise<void>;
+  refreshTradeHistory: () => Promise<void>;
+  refreshOpenOrders: () => Promise<void>;
+  refreshPositions: () => Promise<void>;
+  getPrice: (symbol: string) => number | null;
 }
 
 // Create context
@@ -53,6 +67,71 @@ export const TradingContext = createContext<TradingContextType | undefined>(unde
 export const TradingProvider = ({ children }: { children: ReactNode }) => {
   const [connectedAccount, setConnectedAccount] = useState<ConnectedAccount | null>(null);
   const [isTrading, setIsTrading] = useState(false);
+  
+  // Market data state
+  const [marketPrices, setMarketPrices] = useState<Map<string, MarketPrice>>(new Map());
+  const [tradeHistory, setTradeHistory] = useState<TradeHistoryItem[]>([]);
+  const [openOrders, setOpenOrders] = useState<OpenOrder[]>([]);
+  const [positions, setPositions] = useState<Position[]>([]);
+
+  // Market data functions
+  const refreshMarketData = useCallback(async () => {
+    try {
+      const prices = await marketDataService.fetchMarketPrices();
+      setMarketPrices(prices);
+    } catch (error) {
+      console.error('Error refreshing market data:', error);
+    }
+  }, []);
+
+  const refreshTradeHistory = useCallback(async () => {
+    if (!connectedAccount?.publicKey) return;
+    try {
+      const history = await marketDataService.fetchTradeHistory(connectedAccount.publicKey);
+      setTradeHistory(history);
+    } catch (error) {
+      console.error('Error refreshing trade history:', error);
+    }
+  }, [connectedAccount?.publicKey]);
+
+  const refreshOpenOrders = useCallback(async () => {
+    if (!connectedAccount?.publicKey) return;
+    try {
+      const orders = await marketDataService.fetchOpenOrders(connectedAccount.publicKey);
+      setOpenOrders(orders);
+    } catch (error) {
+      console.error('Error refreshing open orders:', error);
+    }
+  }, [connectedAccount?.publicKey]);
+
+  const refreshPositions = useCallback(async () => {
+    if (!connectedAccount?.publicKey) return;
+    try {
+      const pos = await marketDataService.fetchPositions(connectedAccount.publicKey);
+      setPositions(pos);
+    } catch (error) {
+      console.error('Error refreshing positions:', error);
+    }
+  }, [connectedAccount?.publicKey]);
+
+  const getPrice = useCallback((symbol: string): number | null => {
+    const price = marketPrices.get(symbol);
+    return price ? price.price : null;
+  }, [marketPrices]);
+
+  // Auto-refresh market data when account connects
+  useEffect(() => {
+    if (connectedAccount?.publicKey) {
+      refreshMarketData();
+      refreshTradeHistory();
+      refreshOpenOrders();
+      refreshPositions();
+      
+      // Set up periodic refresh for market data
+      const interval = setInterval(refreshMarketData, 10000); // Every 10 seconds
+      return () => clearInterval(interval);
+    }
+  }, [connectedAccount?.publicKey, refreshMarketData, refreshTradeHistory, refreshOpenOrders, refreshPositions]);
 
   // Execute trading order using HyperLiquid API
   const executeOrder = async (order: TradingOrder): Promise<{ success: boolean; message: string; orderId?: string }> => {
@@ -532,7 +611,20 @@ export const TradingProvider = ({ children }: { children: ReactNode }) => {
     setIsTrading,
     executeOrder,
     closeAllPositions,
-    cancelAllOrders
+    cancelAllOrders,
+    
+    // Market data
+    marketPrices,
+    tradeHistory,
+    openOrders,
+    positions,
+    
+    // Data refresh functions
+    refreshMarketData,
+    refreshTradeHistory,
+    refreshOpenOrders,
+    refreshPositions,
+    getPrice
   };
 
   return (
@@ -540,4 +632,13 @@ export const TradingProvider = ({ children }: { children: ReactNode }) => {
       {children}
     </TradingContext.Provider>
   );
+};
+
+// Custom hook to use the TradingContext
+export const useTrading = () => {
+  const context = useContext(TradingContext);
+  if (context === undefined) {
+    throw new Error('useTrading must be used within a TradingProvider');
+  }
+  return context;
 };
