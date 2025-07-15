@@ -4,12 +4,12 @@ import { signOrderAction } from "../utils/hyperLiquidSigning";
 import { validateOrderPayload, logOrderDetails } from "../utils/hyperLiquidHelpers";
 import { marketDataService, type MarketPrice, type TradeHistoryItem, type OpenOrder, type Position } from "../utils/marketDataService";
 
-// Types for trading account and connection
+// Types for master account (view-only) and trading functionality
 export interface ConnectedAccount {
   accountId: number;
   accountName: string;
   publicKey: string;
-  privateKey: string;
+  privateKey: string; // Empty for master account, used only for agent
   balance: string;
   pnl: string;
   pair: string;
@@ -38,15 +38,18 @@ export interface TradingOrder {
 
 // Context interface
 interface TradingContextType {
-  connectedAccount: ConnectedAccount | null;
+  // Master Account (View Only)
+  connectedAccount: ConnectedAccount | null; // Master account for viewing data
   setConnectedAccount: (account: ConnectedAccount | null) => void;
+  
+  // Agent Trading Functions (uses separate agent wallet)
   isTrading: boolean;
   setIsTrading: (trading: boolean) => void;
   executeOrder: (order: TradingOrder) => Promise<{ success: boolean; message: string; orderId?: string }>;
   closeAllPositions: () => Promise<{ success: boolean; message: string }>;
   cancelAllOrders: () => Promise<{ success: boolean; message: string }>;
   
-  // Market data
+  // Market data from master account
   marketPrices: Map<string, MarketPrice>;
   tradeHistory: TradeHistoryItem[];
   openOrders: OpenOrder[];

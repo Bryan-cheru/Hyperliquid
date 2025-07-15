@@ -36,7 +36,7 @@ const MidUp = ({ setModal }: Props) => {
             </h1>
             {connectedAccount && (
               <div className="text-sm text-gray-400">
-                • {connectedAccount.accountName}
+                • Master: {connectedAccount.accountName}
               </div>
             )}
           </div>

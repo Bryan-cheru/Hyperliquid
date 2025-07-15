@@ -18,19 +18,30 @@ const TradingControls = ({ setType, type }: Props) => {
         <div className="top">
           <h1 className="text-[#F0B90B] font-bold font-sans-Roboto text-xl">TRADING CONTROLS</h1>
           
-          {/* Connected Account Status */}
+          {/* Master Account Status */}
           <div className="mt-2 mb-3 p-2 bg-[#24293A] rounded-md">
             {connectedAccount ? (
               <div className="text-xs">
-                <div className="text-green-400 font-semibold">🟢 Trading Account Connected</div>
+                <div className="text-blue-400 font-semibold">�️ Master Account Connected (View Only)</div>
                 <div className="text-gray-300">{connectedAccount.accountName}</div>
                 <div className="text-gray-400">{connectedAccount.pair} • Balance: {connectedAccount.balance}</div>
               </div>
             ) : (
               <div className="text-xs text-gray-400">
-                ⚠️ No trading account connected. Open Account Management to connect.
+                ⚠️ No master account connected. Connect to view account data.
               </div>
             )}
+          </div>
+
+          {/* Agent Account Status for Trading */}
+          <div className="mt-2 mb-3 p-2 bg-[#2A2F3A] rounded-md border border-[#373A45]">
+            <div className="text-xs">
+              <div className="text-orange-400 font-semibold">🤖 Agent Account Status</div>
+              <div className="text-gray-400 mt-1">Agent wallet required for executing trades</div>
+              <div className="text-gray-500 text-[10px] mt-1">
+                Trading orders will be signed by configured agent wallet
+              </div>
+            </div>
           </div>
           
           <div className="flex gap-2.5">

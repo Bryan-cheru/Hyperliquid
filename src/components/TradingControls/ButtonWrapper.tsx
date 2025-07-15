@@ -79,12 +79,17 @@ const ButtonWrapper = ({ tradingParams }: ButtonWrapperProps) => {
             {/* Account Status */}
             <div className="text-xs text-center w-full">
               {connectedAccount ? (
-                <span className="text-green-400">
-                  ✓ {connectedAccount.accountName} Ready
-                </span>
+                <div className="space-y-1">
+                  <span className="text-blue-400">
+                    👁️ Master: {connectedAccount.accountName} (Data Source)
+                  </span>
+                  <div className="text-orange-400">
+                    🤖 Trades executed via Agent Wallet
+                  </div>
+                </div>
               ) : (
                 <span className="text-gray-400">
-                  No account connected for trading
+                  Connect master account to view trading data
                 </span>
               )}
             </div>
