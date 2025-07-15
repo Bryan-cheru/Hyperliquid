@@ -80,15 +80,6 @@ const ConnectionModal: React.FC<ConnectionModalProps> = ({ isOpen, onClose }) =>
           </button>
         </div>
 
-        <div className="mb-4 p-3 bg-blue-900/20 border border-blue-500/30 rounded-md">
-          <p className="text-blue-400 text-sm">
-            👁️ <strong>Master Account:</strong> View-only access to account data, positions, and history.
-          </p>
-          <p className="text-blue-300 text-xs mt-1">
-            🤖 <strong>Trading:</strong> Orders will be executed using a separate agent wallet.
-          </p>
-        </div>
-
         <div className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-gray-300 mb-2">
