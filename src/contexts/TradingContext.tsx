@@ -105,7 +105,7 @@ export const TradingProvider = ({ children }: { children: ReactNode }) => {
   const refreshTradeHistory = useCallback(async () => {
     if (!connectedAccount?.publicKey) return; // Use master account for viewing data
     try {
-      const history = await marketDataService.fetchTradeHistory(connectedAccount.publicKey);
+      const history = await marketDataService.fetchTradeHistory(connectedAccount.publicKey, 200); // Fetch up to 200 trades like Hyperliquid
       setTradeHistory(history);
     } catch (error) {
       console.error('Error refreshing trade history:', error);
@@ -154,17 +154,27 @@ export const TradingProvider = ({ children }: { children: ReactNode }) => {
     }
   }, [connectedAccount?.publicKey, refreshMarketData, refreshTradeHistory, refreshOpenOrders, refreshPositions]);
 
-  // Auto-refresh market data when account connects
+  // Auto-refresh data when account connects - Enhanced for Hyperliquid-like real-time updates
   useEffect(() => {
     if (connectedAccount?.publicKey) {
+      // Initial data load
       refreshMarketData();
       refreshTradeHistory();
       refreshOpenOrders();
       refreshPositions();
       
-      // Set up periodic refresh for market data
-      const interval = setInterval(refreshMarketData, 10000); // Every 10 seconds
-      return () => clearInterval(interval);
+      // Set up periodic refresh intervals like Hyperliquid
+      const marketDataInterval = setInterval(refreshMarketData, 5000); // Every 5 seconds for market prices
+      const tradeHistoryInterval = setInterval(refreshTradeHistory, 3000); // Every 3 seconds for trade history
+      const openOrdersInterval = setInterval(refreshOpenOrders, 2000); // Every 2 seconds for open orders
+      const positionsInterval = setInterval(refreshPositions, 5000); // Every 5 seconds for positions
+      
+      return () => {
+        clearInterval(marketDataInterval);
+        clearInterval(tradeHistoryInterval);
+        clearInterval(openOrdersInterval);
+        clearInterval(positionsInterval);
+      };
     }
   }, [connectedAccount?.publicKey, refreshMarketData, refreshTradeHistory, refreshOpenOrders, refreshPositions]);
 

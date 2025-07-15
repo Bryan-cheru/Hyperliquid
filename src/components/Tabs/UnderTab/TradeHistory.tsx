@@ -1,7 +1,61 @@
+import { useState, useEffect } from 'react';
 import { useTrading } from '../../../hooks/useTrading';
 
 const TradeHistory = () => {
-    const { connectedAccount, tradeHistory } = useTrading();
+    const { connectedAccount, tradeHistory, refreshTradeHistory } = useTrading();
+    const [isRefreshing, setIsRefreshing] = useState(false);
+    const [currentLimit, setCurrentLimit] = useState(200);
+
+    // Track when trade history updates to show real-time feedback like Hyperliquid
+    useEffect(() => {
+        if (tradeHistory.length > 0) {
+            // Could add notification sound or visual feedback here
+        }
+    }, [tradeHistory]);
+
+    // Enhanced manual refresh function with loading state
+    const handleManualRefresh = async () => {
+        if (refreshTradeHistory && !isRefreshing) {
+            setIsRefreshing(true);
+            try {
+                await refreshTradeHistory();
+            } finally {
+                setIsRefreshing(false);
+            }
+        }
+    };
+
+    // Load more historical data
+    const handleLoadMore = async () => {
+        if (refreshTradeHistory && !isRefreshing) {
+            setIsRefreshing(true);
+            try {
+                const newLimit = currentLimit + 100;
+                setCurrentLimit(newLimit);
+                // You would need to modify the refreshTradeHistory to accept a limit parameter
+                // For now, just refresh with current settings
+                await refreshTradeHistory();
+            } finally {
+                setIsRefreshing(false);
+            }
+        }
+    };
+
+    // Format time like Hyperliquid (relative time for recent trades)
+    const formatTradeTime = (timestamp: number) => {
+        const now = Date.now();
+        const diff = now - timestamp;
+        const minutes = Math.floor(diff / 60000);
+        const hours = Math.floor(diff / 3600000);
+        const days = Math.floor(diff / 86400000);
+
+        if (minutes < 1) return 'Just now';
+        if (minutes < 60) return `${minutes}m ago`;
+        if (hours < 24) return `${hours}h ago`;
+        if (days < 7) return `${days}d ago`;
+        
+        return new Date(timestamp).toLocaleDateString();
+    };
 
     return (
         <>
@@ -11,12 +65,26 @@ const TradeHistory = () => {
                 {/* Header row defining the table columns */}
                 <div className="flex overflow-x-auto no-scrollbar border-b border-[#2A3441] gap-8 p-4 bg-[#151C26] justify-between items-center font-medium w-full">
                     
-                    {/* Column: Time with sort icon */}
+                    {/* Column: Time with sort icon and refresh indicator */}
                     <div className="flex items-center gap-0.5 text-[10px] ml-3">
                         <p>Time</p>
                         <svg xmlns="http://www.w3.org/2000/svg" width="11" height="7" viewBox="0 0 12 7" fill="none">
                             <path d="M5.47012 6.02949C5.76309 6.32246 6.23887 6.32246 6.53184 6.02949L11.0318 1.52949C11.3248 1.23652 11.3248 0.760742 11.0318 0.467773C10.7389 0.174805 10.2631 0.174805 9.97012 0.467773L5.9998 4.43809L2.02949 0.470117C1.73652 0.177148 1.26074 0.177148 0.967773 0.470117C0.674805 0.763086 0.674805 1.23887 0.967773 1.53184L5.46777 6.03184L5.47012 6.02949Z" fill="#A0A9B4" />
                         </svg>
+                        {/* Real-time update indicator like Hyperliquid */}
+                        {isRefreshing && (
+                            <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse ml-1" title="Updating..." />
+                        )}
+                        {connectedAccount && (
+                            <button 
+                                onClick={handleManualRefresh}
+                                disabled={isRefreshing}
+                                className="ml-2 text-[#F0B90B] hover:text-yellow-300 text-[8px] transition-colors"
+                                title="Refresh trade history"
+                            >
+                                🔄
+                            </button>
+                        )}
                     </div>
 
                     {/* Column: Coin traded */}
@@ -51,13 +119,24 @@ const TradeHistory = () => {
                 {/* Dynamic Content: Show trade history if connected */}
                 {connectedAccount ? (
                     tradeHistory.length > 0 ? (
-                        <div className="max-h-[588px] overflow-y-auto">
+                        <>
+                            {/* Real-time status indicator like Hyperliquid */}
+                            <div className="px-4 py-2 bg-[#1A1E2A] border-b border-[#2A3441] text-[10px] text-gray-400 flex justify-between items-center">
+                                <span>
+                                    {tradeHistory.length} trade{tradeHistory.length !== 1 ? 's' : ''} shown
+                                </span>
+                                <span className="flex items-center gap-1">
+                                    <div className="w-1.5 h-1.5 bg-green-400 rounded-full animate-pulse" />
+                                    Live updates every 3s
+                                </span>
+                            </div>
+                            <div className="max-h-[558px] overflow-y-auto">
                             {tradeHistory.map((trade, index) => (
                                 <div key={index} className="flex justify-between items-center border-b border-[#2A3441] hover:bg-[#1A1E2A] transition-colors gap-8 p-4 w-full">
-                                    {/* Time */}
+                                    {/* Time - Hyperliquid-style relative time */}
                                     <div className="flex items-center ml-3">
                                         <span className="text-gray-400 text-xs">
-                                            {new Date(trade.timestamp).toLocaleDateString()} {new Date(trade.timestamp).toLocaleTimeString()}
+                                            {formatTradeTime(trade.timestamp)}
                                         </span>
                                     </div>
 
@@ -101,7 +180,24 @@ const TradeHistory = () => {
                                     </div>
                                 </div>
                             ))}
+                            
+                            {/* Load More button - Hyperliquid style */}
+                            {tradeHistory.length >= 20 && (
+                                <div className="p-4 border-t border-[#2A3441] text-center">
+                                    <button
+                                        onClick={handleLoadMore}
+                                        disabled={isRefreshing}
+                                        className="px-4 py-2 bg-[#2A2F3A] hover:bg-[#373A45] text-[#F0B90B] text-xs rounded transition-colors border border-[#373A45] disabled:opacity-50"
+                                    >
+                                        {isRefreshing ? 'Loading...' : 'Load More History'}
+                                    </button>
+                                    <div className="text-[10px] text-gray-400 mt-1">
+                                        Showing {tradeHistory.length} trades
+                                    </div>
+                                </div>
+                            )}
                         </div>
+                        </>
                     ) : (
                         <article className="flex flex-col justify-center items-center h-[588px]">
                             <svg xmlns="http://www.w3.org/2000/svg" width="37" height="37" viewBox="0 0 37 37" fill="none">

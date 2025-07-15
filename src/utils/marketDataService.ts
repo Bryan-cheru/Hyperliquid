@@ -109,9 +109,10 @@ class MarketDataService {
     return marketData ? marketData.price : null;
   }
 
-  // Fetch trade history for a wallet
-  async fetchTradeHistory(walletAddress: string): Promise<TradeHistoryItem[]> {
+  // Fetch trade history for a wallet with pagination support like Hyperliquid
+  async fetchTradeHistory(walletAddress: string, limit: number = 100): Promise<TradeHistoryItem[]> {
     try {
+      // First, get recent fills
       const response = await fetch('https://api.hyperliquid.xyz/info', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -123,17 +124,45 @@ class MarketDataService {
 
       const fills = await response.json();
       
-      return fills.map((fill: any, index: number) => ({
-        id: `${fill.oid || index}`,
-        timestamp: fill.time || Date.now(),
-        symbol: fill.coin || 'Unknown',
-        side: fill.side === 'A' ? 'buy' : 'sell',
-        quantity: parseFloat(fill.sz || '0'),
-        price: parseFloat(fill.px || '0'),
-        value: parseFloat(fill.sz || '0') * parseFloat(fill.px || '0'),
-        status: 'filled',
-        orderId: fill.oid?.toString() || `${index}`
-      })).sort((a, b) => b.timestamp - a.timestamp);
+      // If we have fewer fills than requested, try to get more historical data
+      let allFills = fills || [];
+      
+      // For more comprehensive history, we can also fetch with aggregateByTime
+      if (allFills.length < limit) {
+        try {
+          const historicalResponse = await fetch('https://api.hyperliquid.xyz/info', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ 
+              type: "userFills",
+              user: walletAddress,
+              aggregateByTime: false // Get individual fills, not aggregated
+            })
+          });
+
+          const historicalFills = await historicalResponse.json();
+          if (historicalFills && historicalFills.length > allFills.length) {
+            allFills = historicalFills;
+          }
+        } catch (error) {
+          console.warn('Could not fetch additional historical data:', error);
+        }
+      }
+      
+      return allFills
+        .map((fill: any, index: number) => ({
+          id: `${fill.oid || fill.tid || index}`,
+          timestamp: fill.time || Date.now(),
+          symbol: fill.coin || 'Unknown',
+          side: fill.side === 'A' ? 'buy' : 'sell',
+          quantity: parseFloat(fill.sz || '0'),
+          price: parseFloat(fill.px || '0'),
+          value: parseFloat(fill.sz || '0') * parseFloat(fill.px || '0'),
+          status: 'filled',
+          orderId: fill.oid?.toString() || fill.tid?.toString() || `${index}`
+        }))
+        .sort((a, b) => b.timestamp - a.timestamp)
+        .slice(0, limit); // Limit results to prevent UI issues
       
     } catch (error) {
       console.error('Error fetching trade history:', error);
