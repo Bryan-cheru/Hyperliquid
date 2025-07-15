@@ -1,12 +1,17 @@
 import { useState } from "react";
 import { useTrading } from "../../hooks/useTrading";
 import type { TradingOrder } from "../../contexts/TradingContext";
+import type { TradingParams } from "./Market&Limit/Market";
 
-const ButtonWrapper = () => {
+interface ButtonWrapperProps {
+  tradingParams?: TradingParams;
+}
+
+const ButtonWrapper = ({ tradingParams }: ButtonWrapperProps) => {
   const { connectedAccount, isTrading, executeOrder, closeAllPositions, cancelAllOrders } = useTrading();
   const [statusMessage, setStatusMessage] = useState<string>("");
 
-  // Handle Long/Short trading
+  // Handle Long/Short trading using real UI parameters
   const handleTrade = async (side: "buy" | "sell") => {
     if (!connectedAccount) {
       setStatusMessage("Please connect an account first");
@@ -14,28 +19,37 @@ const ButtonWrapper = () => {
     }
 
     // Get the current trading pair from connected account
-    // Convert from various formats to standard format
     let symbol = connectedAccount.pair;
     if (symbol.includes('/')) {
       // Convert BTC/USDT to BTC-USD format for HyperLiquid
       symbol = symbol.replace('/USDT', '-USD').replace('/USDC', '-USD');
     }
 
-    // Use actual trading parameters (in production, get these from form inputs)
+    // Use REAL trading parameters from UI inputs
     const order: TradingOrder = {
       symbol: symbol,
       side,
-      orderType: "market", // TODO: Get from Market/Limit toggle
-      quantity: 0.1, // TODO: Get from position size slider/input
-      leverage: 20, // TODO: Get from leverage slider
+      orderType: tradingParams?.orderType === "Market" ? "market" : "limit",
+      quantity: tradingParams ? (tradingParams.positionSize / 100) * 0.001 : 0.001, // Convert percentage to BTC amount
+      leverage: tradingParams?.leverage || 20,
+      price: tradingParams?.orderType === "Limit" ? tradingParams.triggerPrice : undefined,
+      stopPrice: tradingParams?.orderType === "Limit" ? tradingParams.stopPrice : undefined,
+      stopLoss: tradingParams?.stopLoss ? tradingParams.stopLoss / 100 : undefined, // Convert percentage
+      // Additional parameters from UI
+      orderSplit: tradingParams?.orderSplit || false,
+      minPrice: tradingParams?.minPrice,
+      maxPrice: tradingParams?.maxPrice,
+      splitCount: tradingParams?.splitCount || 1,
+      scaleType: tradingParams?.scaleType,
     };
 
-    console.log(`🚀 Executing ${side.toUpperCase()} order:`, order);
+    console.log(`🚀 Executing ${side.toUpperCase()} order with UI parameters:`, order);
+    console.log(`📊 Trading Params from UI:`, tradingParams);
     
     const result = await executeOrder(order);
     setStatusMessage(result.message);
     
-    // Clear message after 5 seconds to see the result
+    // Clear message after 5 seconds
     setTimeout(() => setStatusMessage(""), 5000);
   };
 
@@ -64,6 +78,27 @@ const ButtonWrapper = () => {
                 <span className="text-gray-400">
                   No account connected for trading
                 </span>
+              )}
+            </div>
+
+            {/* Trading Parameters Display - Show current UI values */}
+            <div className="text-xs text-left w-full bg-[#24293A] p-2 rounded-md mb-2">
+              <div className="text-yellow-400 font-semibold mb-1">📊 Current Trading Settings:</div>
+              {tradingParams ? (
+                <div className="text-gray-300 space-y-0.5">
+                  <div>Order Type: {tradingParams.orderType}</div>
+                  <div>Leverage: {tradingParams.leverage}x</div>
+                  <div>Position Size: {tradingParams.positionSize}%</div>
+                  <div>Stop Loss: {tradingParams.stopLoss}%</div>
+                  {tradingParams.orderType === "Limit" && tradingParams.triggerPrice && tradingParams.triggerPrice > 0 && (
+                    <div>Trigger Price: ${tradingParams.triggerPrice}</div>
+                  )}
+                  {tradingParams.orderSplit && (
+                    <div>Order Split: ✓ ({tradingParams.splitCount} orders)</div>
+                  )}
+                </div>
+              ) : (
+                <div className="text-gray-400">No trading parameters available</div>
               )}
             </div>
 

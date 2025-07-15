@@ -6,16 +6,52 @@ import ButtonWrapper from "../ButtonWrapper";
 
 export type Type = "Limit" | "Market";
 
+// Trading parameters interface
+export interface TradingParams {
+  leverage: number;
+  positionSize: number;
+  stopLoss: number;
+  orderType: Type;
+  triggerPrice?: number;
+  stopPrice?: number;
+  orderSplit: boolean;
+  minPrice?: number;
+  maxPrice?: number;
+  splitCount: number;
+  scaleType: 'Lower' | 'Mid point' | 'Upper';
+}
+
 const Market = () => {
 
     const [leverage, setLeverage] = useState(10);
     const [value2, setValue2] = useState(10);
     const [value, setValue] = useState<number[]>([0]);
     const [value3, setValue3] = useState<number[]>([0]);
-    const [value4, setValue4] = useState(10);
+    const [value4, setValue4] = useState(0); // Changed to 0 for Lower
     
     const [clickedSplit, setClickedSplit] = useState<boolean>(false);
-    const [type, setType] = useState<Type>("Limit");
+    const [type, setType] = useState<Type>("Market");
+    
+    // Additional state for limit order inputs
+    const [triggerPrice, setTriggerPrice] = useState<number>(0);
+    const [stopPrice, setStopPrice] = useState<number>(0);
+    const [minPrice, setMinPrice] = useState<number>(0);
+    const [maxPrice, setMaxPrice] = useState<number>(0);
+
+    // Create trading parameters object to pass to ButtonWrapper
+    const tradingParams: TradingParams = {
+      leverage: value2,
+      positionSize: value3[0] ?? 0,
+      stopLoss: value[0] ?? 0,
+      orderType: type,
+      triggerPrice: type === "Limit" ? triggerPrice : undefined,
+      stopPrice: type === "Limit" ? stopPrice : undefined,
+      orderSplit: clickedSplit,
+      minPrice: clickedSplit ? minPrice : undefined,
+      maxPrice: clickedSplit ? maxPrice : undefined,
+      splitCount: leverage,
+      scaleType: value4 === 0 ? "Lower" : value4 === 1 ? "Mid point" : "Upper"
+    };
 
     return (
         <div className="flex flex-col gap-8">
@@ -127,11 +163,23 @@ const Market = () => {
                 <div className={`gap-5 mt-4 ${type === "Market" ? "hidden" : "flex"}`}>
                     <div className="flex flex-col gap-1.5 w-full">
                         <h2 className="text-white font-medium">Trigger Price</h2>
-                        <input type="number" placeholder="Enter Price" className="inputs" />
+                        <input 
+                          type="number" 
+                          placeholder="Enter Price" 
+                          className="inputs" 
+                          value={triggerPrice || ''}
+                          onChange={(e) => setTriggerPrice(parseFloat(e.target.value) || 0)}
+                        />
                     </div>
                     <div className="flex flex-col gap-1.5 w-full">
                         <h2 className="text-white font-medium">Stop Price</h2>
-                        <input type="number" placeholder="Enter Price" className="inputs" />
+                        <input 
+                          type="number" 
+                          placeholder="Enter Price" 
+                          className="inputs" 
+                          value={stopPrice || ''}
+                          onChange={(e) => setStopPrice(parseFloat(e.target.value) || 0)}
+                        />
                     </div>
                 </div>
                 <div className="flex gap-4 border-b border-[#373A45] pb-4">
@@ -169,11 +217,27 @@ const Market = () => {
                     <div className="flex gap-5 w-full max-w-full">
                     <div className="flex flex-col gap-1.5 w-full basis-1/2">
                         <h2 className="text-white font-medium">Min price</h2>
-                        <input type="number" readOnly={!clickedSplit} disabled={!clickedSplit} placeholder="Enter Price" className={`inputs ${clickedSplit ? "" : "bg-gray-800"}`} />
+                        <input 
+                          type="number" 
+                          readOnly={!clickedSplit} 
+                          disabled={!clickedSplit} 
+                          placeholder="Enter Price" 
+                          className={`inputs ${clickedSplit ? "" : "bg-gray-800"}`}
+                          value={clickedSplit ? (minPrice || '') : ''}
+                          onChange={(e) => setMinPrice(parseFloat(e.target.value) || 0)}
+                        />
                     </div>
                     <div className="flex flex-col gap-1.5 w-full basis-1/2">
                         <h2 className="text-white font-medium">Max price</h2>
-                        <input type="number" readOnly={!clickedSplit} disabled={!clickedSplit} placeholder="Enter Price" className={`inputs ${clickedSplit ? "" : "bg-gray-800"}`} />
+                        <input 
+                          type="number" 
+                          readOnly={!clickedSplit} 
+                          disabled={!clickedSplit} 
+                          placeholder="Enter Price" 
+                          className={`inputs ${clickedSplit ? "" : "bg-gray-800"}`}
+                          value={clickedSplit ? (maxPrice || '') : ''}
+                          onChange={(e) => setMaxPrice(parseFloat(e.target.value) || 0)}
+                        />
                     </div>
                 </div>
             </div>
@@ -231,7 +295,7 @@ const Market = () => {
                                   <span>Upper band</span>
                               </div>
                           </div>
-            <ButtonWrapper />
+            <ButtonWrapper tradingParams={tradingParams} />
         </div>
     )
 }

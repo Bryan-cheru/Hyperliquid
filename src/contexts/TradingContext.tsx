@@ -25,6 +25,14 @@ export interface TradingOrder {
   leverage: number;
   stopLoss?: number;
   takeProfit?: number;
+  // Additional UI parameters
+  stopPrice?: number;
+  triggerPrice?: number;
+  orderSplit?: boolean;
+  minPrice?: number;
+  maxPrice?: number;
+  splitCount?: number;
+  scaleType?: string;
 }
 
 // Context interface
@@ -59,9 +67,25 @@ export const TradingProvider = ({ children }: { children: ReactNode }) => {
     setIsTrading(true);
     
     try {
-      console.log('Executing HyperLiquid order:', order);
-      console.log('Using agent wallet:', connectedAccount.publicKey);
-      console.log('Trading on behalf of subaccount (if applicable)');
+      console.log('🚀 Executing HyperLiquid order with UI parameters:', order);
+      console.log('📊 Complete Order Details:');
+      console.log('   Symbol:', order.symbol);
+      console.log('   Side:', order.side);
+      console.log('   Order Type:', order.orderType);
+      console.log('   Quantity:', order.quantity);
+      console.log('   Leverage:', order.leverage);
+      console.log('   Price:', order.price || 'Market');
+      console.log('   Stop Loss:', order.stopLoss ? `${order.stopLoss * 100}%` : 'None');
+      console.log('   Stop Price:', order.stopPrice || 'None');
+      console.log('   Order Split:', order.orderSplit ? 'Yes' : 'No');
+      if (order.orderSplit) {
+        console.log('   Split Count:', order.splitCount);
+        console.log('   Min Price:', order.minPrice);
+        console.log('   Max Price:', order.maxPrice);
+        console.log('   Scale Type:', order.scaleType);
+      }
+      console.log('🔗 Using agent wallet:', connectedAccount.publicKey);
+      console.log('📈 Trading on behalf of subaccount (if applicable)');
       
       // Get asset index for the trading pair
       const assetSymbol = order.symbol.replace('/USDT', '').replace('/USDC', '').replace('-USD', '');
@@ -103,23 +127,27 @@ export const TradingProvider = ({ children }: { children: ReactNode }) => {
       // Prepare HyperLiquid order payload for direct account trading
       const nonce = Date.now();
       
-      // FIXED: Use direct account trading (no vault needed)
-      // This eliminates the "Vault not registered" error
-      const orderPayload = {
+      // Build payload, only include vaultAddress if needed and valid
+      const orderPayloadRaw: Record<string, unknown> = {
         action: orderAction,
         nonce,
-        signature: await signOrderAction(orderAction, nonce, connectedAccount.privateKey, undefined), // undefined = direct account
-        vaultAddress: undefined // Direct account trading
+        signature: await signOrderAction(orderAction, nonce, connectedAccount.privateKey, undefined)
       };
+      // If you ever need to use a vault, add: orderPayloadRaw.vaultAddress = vaultAddress; (must be a non-empty string)
+
+      // Remove any undefined/null/empty-string fields (API expects only present fields)
+      const orderPayload = Object.fromEntries(
+        Object.entries(orderPayloadRaw).filter(([key, v]) => v !== undefined && v !== null && v !== "")
+      );
 
       // Validate order payload before sending
-      const validation = validateOrderPayload(orderPayload);
+      const validation = validateOrderPayload(orderPayload as any);
       if (!validation.valid) {
         console.warn('⚠️ Order validation issues:', validation.errors);
       }
       
       // Log detailed order information
-      logOrderDetails(orderPayload);
+      logOrderDetails(orderPayload as any);
       
       // Using Python-compatible msgpack and EIP-712 signing for HyperLiquid integration
       console.log('✅ Order signed with Python-compatible msgpack and EIP-712 signature');
