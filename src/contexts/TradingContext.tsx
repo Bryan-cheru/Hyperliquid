@@ -236,13 +236,36 @@ export const TradingProvider = ({ children }: { children: ReactNode }) => {
         throw new Error(`Asset ${assetSymbol} not found in HyperLiquid universe`);
       }
 
-      // Define order action - simplified to match working test file
+      // Get current market price for the asset
+      let orderPrice: string;
+      if (order.orderType === "market") {
+        // For market orders, use a very high/low price to ensure execution
+        const currentPrice = getPrice(assetSymbol);
+        if (currentPrice) {
+          orderPrice = order.side === "buy" 
+            ? (currentPrice * 1.1).toString() // 10% above market for market buy
+            : (currentPrice * 0.9).toString(); // 10% below market for market sell
+        } else {
+          // Fallback if price not available
+          orderPrice = order.side === "buy" ? "999999" : "1";
+        }
+      } else {
+        // For limit orders, use the specified price or current market price
+        if (order.price && order.price > 0) {
+          orderPrice = order.price.toString();
+        } else {
+          const currentPrice = getPrice(assetSymbol);
+          orderPrice = currentPrice ? currentPrice.toString() : "95000"; // Fallback only if no market data
+        }
+      }
+
+      // Define order action - using dynamic pricing
       const orderAction = {
         type: "order",
         orders: [{
           a: assetIndex, // asset index
           b: order.side === "buy", // isBuy
-          p: order.price?.toString() || "95000", // Use a reasonable price for limit orders, or set high for market
+          p: orderPrice, // Use dynamic price based on order type and market conditions
           s: order.quantity.toString(), // size
           r: false, // reduceOnly
           t: { limit: { tif: "Gtc" } } // Always use Gtc like working test
