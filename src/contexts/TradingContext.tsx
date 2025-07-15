@@ -73,6 +73,7 @@ interface TradingContextType {
   refreshTradeHistory: () => Promise<void>;
   refreshOpenOrders: () => Promise<void>;
   refreshPositions: () => Promise<void>;
+  refreshAllData: () => Promise<void>; // Refresh all data at once
   getPrice: (symbol: string) => number | null;
 }
 
@@ -135,6 +136,23 @@ export const TradingProvider = ({ children }: { children: ReactNode }) => {
     const price = marketPrices.get(symbol);
     return price ? price.price : null;
   }, [marketPrices]);
+
+  // Refresh all data at once
+  const refreshAllData = useCallback(async () => {
+    if (!connectedAccount?.publicKey) return;
+    console.log('🔄 Refreshing all account data...');
+    try {
+      await Promise.all([
+        refreshMarketData(),
+        refreshTradeHistory(),
+        refreshOpenOrders(),
+        refreshPositions()
+      ]);
+      console.log('✅ All account data refreshed successfully');
+    } catch (error) {
+      console.error('❌ Error refreshing all data:', error);
+    }
+  }, [connectedAccount?.publicKey, refreshMarketData, refreshTradeHistory, refreshOpenOrders, refreshPositions]);
 
   // Auto-refresh market data when account connects
   useEffect(() => {
@@ -314,6 +332,14 @@ export const TradingProvider = ({ children }: { children: ReactNode }) => {
           }
           
           console.log('✅ Order successful:', { orderId, orderStatus });
+          
+          // Refresh all relevant data after successful trade
+          console.log('🔄 Refreshing account data after successful trade...');
+          try {
+            await refreshAllData();
+          } catch (refreshError) {
+            console.warn('⚠️ Failed to refresh data after trade:', refreshError);
+          }
           
           return {
             success: true,
@@ -514,6 +540,14 @@ export const TradingProvider = ({ children }: { children: ReactNode }) => {
           await new Promise(resolve => setTimeout(resolve, 100));
         }
         
+        // Refresh all relevant data after closing positions
+        console.log('🔄 Refreshing account data after closing positions...');
+        try {
+          await refreshAllData();
+        } catch (refreshError) {
+          console.warn('⚠️ Failed to refresh data after closing positions:', refreshError);
+        }
+        
         return {
           success: true,
           message: closedCount > 0 
@@ -601,6 +635,14 @@ export const TradingProvider = ({ children }: { children: ReactNode }) => {
         const result = await cancelResponse.json();
         console.log('✅ Cancel orders result:', result);
         
+        // Refresh all relevant data after cancelling orders
+        console.log('🔄 Refreshing account data after cancelling orders...');
+        try {
+          await refreshAllData();
+        } catch (refreshError) {
+          console.warn('⚠️ Failed to refresh data after cancelling orders:', refreshError);
+        }
+        
         return {
           success: true,
           message: `Successfully cancelled ${ordersData.length} order(s)`
@@ -647,6 +689,7 @@ export const TradingProvider = ({ children }: { children: ReactNode }) => {
     refreshTradeHistory,
     refreshOpenOrders,
     refreshPositions,
+    refreshAllData,
     getPrice
   };
 
