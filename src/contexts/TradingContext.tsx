@@ -17,6 +17,15 @@ export interface ConnectedAccount {
   connectionStatus: "connected" | "idle" | "error";
 }
 
+export interface AgentAccount {
+  accountId: number;
+  accountName: string;
+  publicKey: string;
+  privateKey: string;
+  isActive: boolean;
+  connectionStatus: "connected" | "idle" | "error";
+}
+
 export interface TradingOrder {
   symbol: string;
   side: "buy" | "sell";
@@ -41,6 +50,10 @@ interface TradingContextType {
   // Master Account (View Only)
   connectedAccount: ConnectedAccount | null; // Master account for viewing data
   setConnectedAccount: (account: ConnectedAccount | null) => void;
+  
+  // Agent Account (For Trading)
+  agentAccount: AgentAccount | null; // Agent account for executing trades
+  setAgentAccount: (account: AgentAccount | null) => void;
   
   // Agent Trading Functions (uses separate agent wallet)
   isTrading: boolean;
@@ -69,6 +82,7 @@ export const TradingContext = createContext<TradingContextType | undefined>(unde
 // Provider component
 export const TradingProvider = ({ children }: { children: ReactNode }) => {
   const [connectedAccount, setConnectedAccount] = useState<ConnectedAccount | null>(null);
+  const [agentAccount, setAgentAccount] = useState<AgentAccount | null>(null);
   const [isTrading, setIsTrading] = useState(false);
   
   // Market data state
@@ -138,12 +152,16 @@ export const TradingProvider = ({ children }: { children: ReactNode }) => {
 
   // Execute trading order using HyperLiquid API
   const executeOrder = async (order: TradingOrder): Promise<{ success: boolean; message: string; orderId?: string }> => {
-    if (!connectedAccount) {
-      return { success: false, message: "No account connected for trading" };
+    if (!agentAccount) {
+      return { success: false, message: "No agent account configured for trading. Please add an agent account first." };
     }
 
-    if (connectedAccount.connectionStatus !== "connected") {
-      return { success: false, message: "Account not properly connected to HyperLiquid" };
+    if (agentAccount.connectionStatus !== "connected") {
+      return { success: false, message: "Agent account not properly connected for trading" };
+    }
+
+    if (!agentAccount.privateKey) {
+      return { success: false, message: "Agent account requires private key for trading operations" };
     }
 
     setIsTrading(true);
@@ -166,7 +184,7 @@ export const TradingProvider = ({ children }: { children: ReactNode }) => {
         console.log('   Max Price:', order.maxPrice);
         console.log('   Scale Type:', order.scaleType);
       }
-      console.log('🔗 Using agent wallet:', connectedAccount.publicKey);
+      console.log('🔗 Using agent wallet:', agentAccount.publicKey);
       console.log('📈 Trading on behalf of subaccount (if applicable)');
       
       // Get asset index for the trading pair
@@ -211,7 +229,7 @@ export const TradingProvider = ({ children }: { children: ReactNode }) => {
       const orderPayload = {
         action: orderAction,
         nonce,
-        signature: await signOrderAction(orderAction, nonce, connectedAccount.privateKey, undefined),
+        signature: await signOrderAction(orderAction, nonce, agentAccount.privateKey, undefined),
         vaultAddress: null // Explicitly set to null for direct account trading (matches working test)
       };
 
@@ -230,7 +248,7 @@ export const TradingProvider = ({ children }: { children: ReactNode }) => {
       // Send order to HyperLiquid API
       try {
         console.log('🚀 Sending order to HyperLiquid API...');
-        console.log('📍 Using wallet for API call:', connectedAccount.publicKey);
+        console.log('📍 Using agent wallet for API call:', agentAccount.publicKey);
         console.log('📦 Final Payload Being Sent:', JSON.stringify(orderPayload, null, 2));
         
         const response = await fetch('https://api.hyperliquid.xyz/exchange', {
@@ -314,7 +332,7 @@ export const TradingProvider = ({ children }: { children: ReactNode }) => {
             if (errorMsg.includes('Vault not registered')) {
               return {
                 success: false,
-                message: `🏦 Vault Configuration Error: The vault address (${connectedAccount.publicKey}) is not registered with HyperLiquid. Please register your vault address in the HyperLiquid app first.`
+                message: `🏦 Vault Configuration Error: The vault address (${agentAccount.publicKey}) is not registered with HyperLiquid. Please register your vault address in the HyperLiquid app first.`
               };
             }
             
@@ -610,6 +628,8 @@ export const TradingProvider = ({ children }: { children: ReactNode }) => {
   const value: TradingContextType = {
     connectedAccount,
     setConnectedAccount,
+    agentAccount,
+    setAgentAccount,
     isTrading,
     setIsTrading,
     executeOrder,

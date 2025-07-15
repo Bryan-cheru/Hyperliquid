@@ -10,7 +10,7 @@ interface Props {
 }
 
 const TradingControls = ({ setType, type }: Props) => {
-  const { connectedAccount } = useTrading();
+  const { connectedAccount, agentAccount } = useTrading();
 
   return (
     <section className="bg-[#181C29] min-h-screen h-fit robot overflow-auto">
@@ -37,10 +37,25 @@ const TradingControls = ({ setType, type }: Props) => {
           <div className="mt-2 mb-3 p-2 bg-[#2A2F3A] rounded-md border border-[#373A45]">
             <div className="text-xs">
               <div className="text-orange-400 font-semibold">🤖 Agent Account Status</div>
-              <div className="text-gray-400 mt-1">Agent wallet required for executing trades</div>
-              <div className="text-gray-500 text-[10px] mt-1">
-                Trading orders will be signed by configured agent wallet
-              </div>
+              {agentAccount ? (
+                <div>
+                  <div className="text-green-400 mt-1">✅ Agent Account Connected</div>
+                  <div className="text-gray-300">{agentAccount.accountName}</div>
+                  <div className="text-gray-400 text-[10px] mt-1">
+                    Ready to execute trades with agent wallet
+                  </div>
+                </div>
+              ) : (
+                <div>
+                  <div className="text-red-400 mt-1">❌ No Agent Account</div>
+                  <div className="text-gray-400 text-[10px] mt-1">
+                    Add an agent account to enable trading
+                  </div>
+                  <button className="mt-2 px-3 py-1 bg-orange-600 hover:bg-orange-700 text-white text-[10px] rounded transition-colors">
+                    Add Agent Account
+                  </button>
+                </div>
+              )}
             </div>
           </div>
           

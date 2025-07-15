@@ -8,13 +8,18 @@ interface ButtonWrapperProps {
 }
 
 const ButtonWrapper = ({ tradingParams }: ButtonWrapperProps) => {
-  const { connectedAccount, isTrading, executeOrder, closeAllPositions, cancelAllOrders } = useTrading();
+  const { connectedAccount, agentAccount, isTrading, executeOrder, closeAllPositions, cancelAllOrders } = useTrading();
   const [statusMessage, setStatusMessage] = useState<string>("");
 
   // Handle Long/Short trading using real UI parameters
   const handleTrade = async (side: "buy" | "sell") => {
+    if (!agentAccount) {
+      setStatusMessage("Please add an agent account first to enable trading");
+      return;
+    }
+
     if (!connectedAccount) {
-      setStatusMessage("Please connect an account first");
+      setStatusMessage("Please connect a master account first to view market data");
       return;
     }
 
@@ -62,12 +67,22 @@ const ButtonWrapper = ({ tradingParams }: ButtonWrapperProps) => {
   };
 
   const handleCloseAll = async () => {
+    if (!agentAccount) {
+      setStatusMessage("Agent account required for trading operations");
+      setTimeout(() => setStatusMessage(""), 3000);
+      return;
+    }
     const result = await closeAllPositions();
     setStatusMessage(result.message);
     setTimeout(() => setStatusMessage(""), 3000);
   };
 
   const handleCancelAll = async () => {
+    if (!agentAccount) {
+      setStatusMessage("Agent account required for trading operations");
+      setTimeout(() => setStatusMessage(""), 3000);
+      return;
+    }
     const result = await cancelAllOrders();
     setStatusMessage(result.message);
     setTimeout(() => setStatusMessage(""), 3000);
@@ -78,20 +93,28 @@ const ButtonWrapper = ({ tradingParams }: ButtonWrapperProps) => {
         <div className="flex flex-col items-center justify-center gap-5">
             {/* Account Status */}
             <div className="text-xs text-center w-full">
-              {connectedAccount ? (
-                <div className="space-y-1">
+              <div className="space-y-1">
+                {connectedAccount ? (
                   <span className="text-blue-400">
                     👁️ Master: {connectedAccount.accountName} (Data Source)
                   </span>
-                  <div className="text-orange-400">
-                    🤖 Trades executed via Agent Wallet
-                  </div>
+                ) : (
+                  <span className="text-gray-400">
+                    Connect master account to view trading data
+                  </span>
+                )}
+                <div>
+                  {agentAccount ? (
+                    <span className="text-green-400">
+                      🤖 Agent: {agentAccount.accountName} (Trading Ready)
+                    </span>
+                  ) : (
+                    <span className="text-red-400">
+                      🤖 No Agent Account (Trading Disabled)
+                    </span>
+                  )}
                 </div>
-              ) : (
-                <span className="text-gray-400">
-                  Connect master account to view trading data
-                </span>
-              )}
+              </div>
             </div>
 
             {/* Trading Parameters Display - Show current UI values */}
@@ -125,23 +148,25 @@ const ButtonWrapper = ({ tradingParams }: ButtonWrapperProps) => {
             <div className="flex gap-5 w-full">
                 <button 
                   onClick={() => handleTrade("buy")}
-                  disabled={!connectedAccount || isTrading}
+                  disabled={!agentAccount || isTrading}
                   className={`long !w-full ${
-                    !connectedAccount || isTrading 
+                    !agentAccount || isTrading 
                       ? "opacity-50 cursor-not-allowed" 
                       : ""
                   }`}
+                  title={!agentAccount ? "Add an agent account to enable trading" : ""}
                 >
                   {isTrading ? "..." : "LONG"}
                 </button>
                 <button 
                   onClick={() => handleTrade("sell")}
-                  disabled={!connectedAccount || isTrading}
+                  disabled={!agentAccount || isTrading}
                   className={`short !w-full ${
-                    !connectedAccount || isTrading 
+                    !agentAccount || isTrading 
                       ? "opacity-50 cursor-not-allowed" 
                       : ""
                   }`}
+                  title={!agentAccount ? "Add an agent account to enable trading" : ""}
                 >
                   {isTrading ? "..." : "SHORT"}
                 </button>
@@ -149,23 +174,25 @@ const ButtonWrapper = ({ tradingParams }: ButtonWrapperProps) => {
             <div className="flex flex-col w-full items-center justify-center gap-3">
                 <button 
                   onClick={handleCloseAll}
-                  disabled={!connectedAccount || isTrading}
+                  disabled={!agentAccount || isTrading}
                   className={`positions ${
-                    !connectedAccount || isTrading 
+                    !agentAccount || isTrading 
                       ? "opacity-50 cursor-not-allowed" 
                       : ""
                   }`}
+                  title={!agentAccount ? "Add an agent account to enable trading" : ""}
                 >
                   {isTrading ? "..." : "Close All Positions"}
                 </button>
                 <button 
                   onClick={handleCancelAll}
-                  disabled={!connectedAccount || isTrading}
+                  disabled={!agentAccount || isTrading}
                   className={`orders ${
-                    !connectedAccount || isTrading 
+                    !agentAccount || isTrading 
                       ? "opacity-50 cursor-not-allowed" 
                       : ""
                   }`}
+                  title={!agentAccount ? "Add an agent account to enable trading" : ""}
                 >
                   {isTrading ? "..." : "Cancel All Orders"}
                 </button>
