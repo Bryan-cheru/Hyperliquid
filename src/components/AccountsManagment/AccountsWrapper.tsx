@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import Account from "./Account";
 import { AnimatePresence } from "framer-motion";
 import DeleteModal from "./DeleteModal/DeleteModal";
+import { useTrading } from "../../hooks/useTrading";
 import './scrollbar.css';
 
 // Define structure for each account

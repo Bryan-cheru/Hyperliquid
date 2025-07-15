@@ -11,6 +11,10 @@ const ButtonWrapper = ({ tradingParams }: ButtonWrapperProps) => {
   const { connectedAccount, agentAccount, isTrading, executeOrder, closeAllPositions, cancelAllOrders } = useTrading();
   const [statusMessage, setStatusMessage] = useState<string>("");
 
+  // Debug logging
+  console.log('ButtonWrapper - agentAccount:', agentAccount);
+  console.log('ButtonWrapper - connectedAccount:', connectedAccount);
+
   // Handle Long/Short trading using real UI parameters
   const handleTrade = async (side: "buy" | "sell") => {
     if (!agentAccount) {

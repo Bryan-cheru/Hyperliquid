@@ -9,7 +9,7 @@ export interface ConnectedAccount {
   accountId: number;
   accountName: string;
   publicKey: string;
-  privateKey: string; // Empty for master account, used only for agent
+  privateKey: string; // Empty for master account - view only
   balance: string;
   pnl: string;
   pair: string;
@@ -21,7 +21,7 @@ export interface AgentAccount {
   accountId: number;
   accountName: string;
   publicKey: string;
-  privateKey: string;
+  privateKey: string; // Required for agent account - for signing transactions
   isActive: boolean;
   connectionStatus: "connected" | "idle" | "error";
 }
@@ -102,7 +102,7 @@ export const TradingProvider = ({ children }: { children: ReactNode }) => {
   }, []);
 
   const refreshTradeHistory = useCallback(async () => {
-    if (!connectedAccount?.publicKey) return;
+    if (!connectedAccount?.publicKey) return; // Use master account for viewing data
     try {
       const history = await marketDataService.fetchTradeHistory(connectedAccount.publicKey);
       setTradeHistory(history);
@@ -112,7 +112,7 @@ export const TradingProvider = ({ children }: { children: ReactNode }) => {
   }, [connectedAccount?.publicKey]);
 
   const refreshOpenOrders = useCallback(async () => {
-    if (!connectedAccount?.publicKey) return;
+    if (!connectedAccount?.publicKey) return; // Use master account for viewing data
     try {
       const orders = await marketDataService.fetchOpenOrders(connectedAccount.publicKey);
       setOpenOrders(orders);
@@ -122,7 +122,7 @@ export const TradingProvider = ({ children }: { children: ReactNode }) => {
   }, [connectedAccount?.publicKey]);
 
   const refreshPositions = useCallback(async () => {
-    if (!connectedAccount?.publicKey) return;
+    if (!connectedAccount?.publicKey) return; // Use master account for viewing data
     try {
       const pos = await marketDataService.fetchPositions(connectedAccount.publicKey);
       setPositions(pos);

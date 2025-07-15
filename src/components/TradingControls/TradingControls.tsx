@@ -1,6 +1,7 @@
 import Limit from "./Market&Limit/Limit";
 import Market from "./Market&Limit/Market";
 import { useTrading } from "../../hooks/useTrading";
+import { useEffect } from "react";
 
 export type Buttons = "Market" | "Limit";
 
@@ -10,21 +11,22 @@ interface Props {
 }
 
 const TradingControls = ({ setType, type }: Props) => {
-  const { connectedAccount, agentAccount, setAgentAccount } = useTrading();
+  const { connectedAccount, agentAccount } = useTrading();
+
+  // Debug logging
+  console.log('TradingControls - agentAccount:', agentAccount);
+  console.log('TradingControls - connectedAccount:', connectedAccount);
+
+  // Track agent account changes
+  useEffect(() => {
+    console.log('Agent account changed:', agentAccount);
+  }, [agentAccount]);
 
   const handleAddAgentAccount = () => {
-    // For now, create a simple test agent account
-    // In a real implementation, this would open a modal for entering agent details
-    const testAgentAccount = {
-      accountId: 1,
-      accountName: "Trading Agent #1",
-      publicKey: "0x742d35Cc...TestAgent", // Placeholder
-      privateKey: "test_private_key_placeholder", // In real app, this would be securely handled
-      isActive: true,
-      connectionStatus: "connected" as const
-    };
-    
-    setAgentAccount(testAgentAccount);
+    // Instead of creating a fake account, guide user to account management
+    alert('Please go to "Manage Accounts" to add a trading agent account with private key.');
+    // In a real implementation, this could open the accounts management modal
+    // or navigate to the accounts management section
   };
 
   return (
@@ -34,7 +36,7 @@ const TradingControls = ({ setType, type }: Props) => {
           <h1 className="text-[#F0B90B] font-bold font-sans-Roboto text-xl">TRADING CONTROLS</h1>
           
           {/* Master Account Status */}
-          <div className="mt-2 mb-3 p-2 bg-[#24293A] rounded-md">
+          {/* <div className="mt-2 mb-3 p-2 bg-[#24293A] rounded-md">
             {connectedAccount ? (
               <div className="text-xs">
                 <div className="text-blue-400 font-semibold">�️ Master Account Connected (View Only)</div>
@@ -46,10 +48,10 @@ const TradingControls = ({ setType, type }: Props) => {
                 ⚠️ No master account connected. Connect to view account data.
               </div>
             )}
-          </div>
+          </div> */}
 
           {/* Agent Account Status for Trading */}
-          <div className="mt-2 mb-3 p-2 bg-[#2A2F3A] rounded-md border border-[#373A45]">
+          {/* <div className="mt-2 mb-3 p-2 bg-[#2A2F3A] rounded-md border border-[#373A45]">
             <div className="text-xs">
               <div className="text-orange-400 font-semibold">🤖 Agent Account Status</div>
               {agentAccount ? (
@@ -75,7 +77,7 @@ const TradingControls = ({ setType, type }: Props) => {
                 </div>
               )}
             </div>
-          </div>
+          </div> */}
           
           <div className="flex gap-2.5">
             <button onClick={() => setType("Market")} className={`py-1.5 cursor-pointer px-3 transform translate-x-3 rounded-[6px] font-bold ${type === "Market" ? "bg-[#F0B90B] text-black" : "bg-[#24293A] text-white"}`}>Market</button>

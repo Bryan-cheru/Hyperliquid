@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import AnimateHeight from "react-animate-height";
 import { motion } from "framer-motion";
 import { useTrading } from "../../hooks/useTrading";
-import type { ConnectedAccount } from "../../contexts/TradingContext";
+import type { AgentAccount } from "../../contexts/TradingContext";
 import { verifyPrivateKeyToAddress } from "../../utils/hyperLiquidSigning";
 
 // Type definition for account data
@@ -35,14 +35,8 @@ const Account = ({ acc, id, getId, getName }: AccountProps) => {
   const [connectionStatus, setConnectionStatus] = useState<"idle" | "connected" | "error">("idle"); // Connection state
   const [errorMessage, setErrorMessage] = useState<string>(""); // Error message
   
-  // Real account data from HyperLiquid
-  const [realBalance, setRealBalance] = useState<string>("");
-  const [realPnL, setRealPnL] = useState<string>("");
-  const [realPair, setRealPair] = useState<string>("");
-  const [openOrdersCount, setOpenOrdersCount] = useState<number>(0);
-  
-  // Trading context to connect account for trading
-  const { setConnectedAccount } = useTrading();
+  // Trading context to connect agent account for trading
+  const { setAgentAccount } = useTrading();
   
   const cardRef = useRef<HTMLDivElement | null>(null); // Ref to detect outside clicks
 
@@ -112,7 +106,7 @@ const Account = ({ acc, id, getId, getName }: AccountProps) => {
       // Test if this agent wallet is already approved by trying to fetch account data
       console.log('🔍 Testing agent wallet permissions...');
       
-      // For agent wallets, we query the agent address directly to test permissions
+      // For agent wallets, we just need to verify the wallet exists
       // The actual subaccount data would be queried separately if needed
       const accountResponse = await fetch('https://api.hyperliquid.xyz/info', {
         method: 'POST',
@@ -125,105 +119,38 @@ const Account = ({ acc, id, getId, getName }: AccountProps) => {
         }),
       });
 
-      // Also fetch open orders for the agent wallet
-      const ordersResponse = await fetch('https://api.hyperliquid.xyz/info', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          type: "openOrders",
-          user: publicKey.trim() // Query orders for the agent wallet
-        }),
-      });
-
-      if (accountResponse.ok && ordersResponse.ok) {
+      if (accountResponse.ok) {
         const accountData = await accountResponse.json();
-        const ordersData = await ordersResponse.json();
         
         console.log('✅ Agent wallet connection successful');
         console.log('📊 Account Data:', accountData);
-        console.log('📋 Orders Data:', ordersData);
+        console.log('✅ Agent wallet verified successfully');
         
-        // Initialize variables for real data
-        let updatedBalance = acc.balance;
-        let updatedPnL = acc.pnl;
-        let updatedPair = acc.pair;
-        let updatedOpenOrdersCount = 0;
-        
-        // Update real data from API response
-        if (accountData.marginSummary) {
-          const balance = accountData.marginSummary.accountValue;
-          const pnl = accountData.marginSummary.totalPv;
-          
-          console.log('💰 Agent wallet balance info:', { balance, pnl });
-          
-          // Update balance if we have valid data
-          if (balance !== undefined) {
-            if (parseFloat(balance) > 0) {
-              updatedBalance = `$${parseFloat(balance).toFixed(2)}`;
-              setRealBalance(updatedBalance);
-            } else {
-              // Agent wallet itself might have zero balance (normal for agent wallets)
-              updatedBalance = "$0.00 (Agent)";
-              setRealBalance(updatedBalance);
-              console.log('📝 Note: Agent wallet shows $0 balance (this is normal - funds are in subaccounts)');
-            }
-          }
-          
-          if (pnl !== undefined) {
-            updatedPnL = parseFloat(pnl) >= 0 ? `+$${parseFloat(pnl).toFixed(2)}` : `$${parseFloat(pnl).toFixed(2)}`;
-            setRealPnL(updatedPnL);
-          }
-        } else {
-          console.log('📝 No margin summary found - agent wallet confirmed but no trading data');
-          updatedBalance = "Agent Wallet";
-          setRealBalance(updatedBalance);
-        }
-
-        // Get active trading pair from positions if any
-        if (accountData.assetPositions && accountData.assetPositions.length > 0) {
-          const mainPosition = accountData.assetPositions[0];
-          if (mainPosition.position?.coin) {
-            updatedPair = `${mainPosition.position.coin}/USDT`;
-            setRealPair(updatedPair);
-          }
-        }
-
-        // Count open orders
-        if (ordersData && Array.isArray(ordersData)) {
-          updatedOpenOrdersCount = ordersData.length;
-          setOpenOrdersCount(updatedOpenOrdersCount);
-        }
-
+        // For agent accounts, we just need to verify the keys work
+        // The master account handles displaying balance/PnL data
         setConnectionStatus("connected");
+        setIsConnecting(false);
+        setErrorMessage("");
+        
         console.log('✅ Agent wallet connected successfully with Python-compatible signing');
         console.log('🔐 Signature verification should now work correctly with HyperLiquid');
         
-        // Set connected account for trading context with updated data
-        const connectedAccountData: ConnectedAccount = {
+        // Set agent account for trading context
+        const agentAccountData: AgentAccount = {
           accountId: acc.num,
           accountName: `${acc.title} ${acc.num}`,
           publicKey: publicKey.trim(),
           privateKey: privateKey.trim(),
-          balance: updatedBalance,
-          pnl: updatedPnL,
-          pair: updatedPair,
-          openOrdersCount: updatedOpenOrdersCount,
+          isActive: true,
           connectionStatus: "connected"
         };
         
-        setConnectedAccount(connectedAccountData);
-        console.log('Account connected for trading:', connectedAccountData.accountName);
-        console.log('Account data:', { 
-          balance: updatedBalance, 
-          pnl: updatedPnL, 
-          pair: updatedPair, 
-          openOrders: updatedOpenOrdersCount 
-        });
+        setAgentAccount(agentAccountData);
+        console.log('Agent account connected for trading:', agentAccountData.accountName);
+        console.log('Agent account ready for trade execution');
         
       } else {
-        throw new Error(`API request failed. Account: ${accountResponse.status}, Orders: ${ordersResponse.status}`);
+        throw new Error(`API request failed. Status: ${accountResponse.status}`);
       }
     } catch (error: unknown) {
       console.error('HyperLiquid connection error:', error);
@@ -301,7 +228,7 @@ const Account = ({ acc, id, getId, getName }: AccountProps) => {
 
       {/* Pair and leverage info */}
       <div className="flex justify-between text-[rgba(255,255,255,0.70)] text-xs">
-        <p>{connectionStatus === "connected" && realPair ? realPair : acc.pair}</p>
+        <p>{acc.pair}</p>
         <p>{acc.leverage}</p>
       </div>
 
@@ -310,12 +237,12 @@ const Account = ({ acc, id, getId, getName }: AccountProps) => {
         <p className="text-[rgba(255,255,255,0.70)] text-xs">
           Balance:{" "}
           <span className="text-white font-bold text-xs">
-            {connectionStatus === "connected" && realBalance ? realBalance : acc.balance}
+            {acc.balance}
           </span>
         </p>
         <p className="text-[rgba(255,255,255,0.70)] text-xs">
           PnL: <span className="text-white font-bold text-xs">
-            {connectionStatus === "connected" && realPnL ? realPnL : acc.pnl}
+            {acc.pnl}
           </span>
         </p>
       </div>
@@ -324,7 +251,7 @@ const Account = ({ acc, id, getId, getName }: AccountProps) => {
       {connectionStatus === "connected" && (
         <div className="mt-2">
           <p className="text-[rgba(255,255,255,0.70)] text-xs">
-            Open Orders: <span className="text-white font-bold text-xs">{openOrdersCount}</span>
+            Open Orders: <span className="text-white font-bold text-xs">-</span>
           </p>
         </div>
       )}
@@ -334,7 +261,7 @@ const Account = ({ acc, id, getId, getName }: AccountProps) => {
         <div className="mt-4 pt-4 flex flex-col gap-4 text-white text-sm">
           {/* API Key inputs */}
           <div className="flex flex-col gap-2">
-            <h3 className="text-xs text-gray-400 font-semibold">HyperLiquid Trading Setup</h3>
+            <h3 className="text-xs text-gray-400 font-semibold">🤖 Agent Account Setup (Trading)</h3>
             <input
               type="text"
               placeholder="Wallet Address (0x...)"
@@ -345,21 +272,21 @@ const Account = ({ acc, id, getId, getName }: AccountProps) => {
             />
             <input
               type="password"
-              placeholder="Private Key (for trading)"
+              placeholder="Private Key (for trading operations)"
               value={privateKey}
               onChange={(e) => setPrivateKey(e.target.value)}
               className="bg-[#1f2228] border border-gray-600 px-3 py-2 rounded-md text-xs"
               onClick={e => e.stopPropagation()}
             />
             <div className="text-xs text-gray-400">
-              Enter your wallet address and private key for trading
+              Add agent account with private key for executing trades (separate from master account)
             </div>
 
             {/* Connection status indicator */}
             {connectionStatus === "connected" && (
               <div className="flex items-center gap-2 text-green-400 text-xs">
                 <div className="w-2 h-2 bg-green-400 rounded-full"></div>
-                Trading enabled - Live data connected
+                🤖 Agent account connected - Ready for trading
               </div>
             )}
             
