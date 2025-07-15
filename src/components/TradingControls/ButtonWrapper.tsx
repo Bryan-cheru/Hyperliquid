@@ -26,11 +26,14 @@ const ButtonWrapper = ({ tradingParams }: ButtonWrapperProps) => {
     }
 
     // Use REAL trading parameters from UI inputs
+    const baseOrderSize = 0.001; // Base order size: 0.001 BTC (~$100)
+    const sizeMultiplier = tradingParams ? Math.max(tradingParams.positionSize / 100, 0.1) : 1; // Minimum 10% of base size
+    
     const order: TradingOrder = {
       symbol: symbol,
       side,
       orderType: tradingParams?.orderType === "Market" ? "market" : "limit",
-      quantity: tradingParams ? (tradingParams.positionSize / 100) * 0.001 : 0.001, // Convert percentage to BTC amount
+      quantity: baseOrderSize * sizeMultiplier, // Ensure minimum viable order size
       leverage: tradingParams?.leverage || 20,
       price: tradingParams?.orderType === "Limit" ? tradingParams.triggerPrice : undefined,
       stopPrice: tradingParams?.orderType === "Limit" ? tradingParams.stopPrice : undefined,
@@ -45,6 +48,11 @@ const ButtonWrapper = ({ tradingParams }: ButtonWrapperProps) => {
 
     console.log(`🚀 Executing ${side.toUpperCase()} order with UI parameters:`, order);
     console.log(`📊 Trading Params from UI:`, tradingParams);
+    console.log(`🧮 Order Size Calculation:`);
+    console.log(`   Base Size: ${baseOrderSize} BTC`);
+    console.log(`   UI Position Size: ${tradingParams?.positionSize || 0}%`);
+    console.log(`   Size Multiplier: ${sizeMultiplier}`);
+    console.log(`   Final Order Size: ${order.quantity} BTC (~$${(order.quantity * 100000).toFixed(2)})`);
     
     const result = await executeOrder(order);
     setStatusMessage(result.message);

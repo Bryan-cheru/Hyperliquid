@@ -108,37 +108,30 @@ export const TradingProvider = ({ children }: { children: ReactNode }) => {
         throw new Error(`Asset ${assetSymbol} not found in HyperLiquid universe`);
       }
 
-      // Define order action for agent wallet trading
+      // Define order action - simplified to match working test file
       const orderAction = {
         type: "order",
         orders: [{
           a: assetIndex, // asset index
           b: order.side === "buy", // isBuy
-          p: order.price?.toString() || "0", // price (0 for market orders)
+          p: order.price?.toString() || "95000", // Use a reasonable price for limit orders, or set high for market
           s: order.quantity.toString(), // size
           r: false, // reduceOnly
-          t: order.orderType === "limit" 
-            ? { limit: { tif: "Gtc" } } // Good Till Canceled for limit orders
-            : { limit: { tif: "Ioc" } }, // Immediate or Cancel for market orders
+          t: { limit: { tif: "Gtc" } } // Always use Gtc like working test
         }],
-        grouping: "na" as const
+        grouping: "na"
       };
 
       // Prepare HyperLiquid order payload for direct account trading
       const nonce = Date.now();
       
-      // Build payload, only include vaultAddress if needed and valid
-      const orderPayloadRaw: Record<string, unknown> = {
+      // Build payload exactly like working test file
+      const orderPayload = {
         action: orderAction,
         nonce,
-        signature: await signOrderAction(orderAction, nonce, connectedAccount.privateKey, undefined)
+        signature: await signOrderAction(orderAction, nonce, connectedAccount.privateKey, undefined),
+        vaultAddress: null // Explicitly set to null for direct account trading (matches working test)
       };
-      // If you ever need to use a vault, add: orderPayloadRaw.vaultAddress = vaultAddress; (must be a non-empty string)
-
-      // Remove any undefined/null/empty-string fields (API expects only present fields)
-      const orderPayload = Object.fromEntries(
-        Object.entries(orderPayloadRaw).filter(([key, v]) => v !== undefined && v !== null && v !== "")
-      );
 
       // Validate order payload before sending
       const validation = validateOrderPayload(orderPayload as any);
@@ -156,6 +149,7 @@ export const TradingProvider = ({ children }: { children: ReactNode }) => {
       try {
         console.log('🚀 Sending order to HyperLiquid API...');
         console.log('📍 Using wallet for API call:', connectedAccount.publicKey);
+        console.log('📦 Final Payload Being Sent:', JSON.stringify(orderPayload, null, 2));
         
         const response = await fetch('https://api.hyperliquid.xyz/exchange', {
           method: 'POST',
