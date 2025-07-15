@@ -1,4 +1,23 @@
+import { useTrading } from '../../../hooks/useTrading';
+
 const OrderHistory = () => {
+    const { connectedAccount, tradeHistory } = useTrading();
+
+    // Create order history from trade history (assuming orders that resulted in trades)
+    const orderHistory = tradeHistory.map(trade => ({
+        id: trade.id,
+        timestamp: trade.timestamp,
+        type: 'limit' as const,
+        symbol: trade.symbol,
+        side: trade.side,
+        size: trade.quantity,
+        filledSize: trade.quantity, // Fully filled since it's in trade history
+        orderValue: trade.value,
+        price: trade.price,
+        reduceOnly: false,
+        status: trade.status
+    }));
+
     return (
         <>
             {/* Outer container with base text styling and padding */}
@@ -26,10 +45,89 @@ const OrderHistory = () => {
                     <div className="flex items-center text-[10px]">Reduce Only</div>
                 </div>
 
-                {/* Placeholder for order history records (empty state) */}
-                <article className="flex flex-col justify-center items-center h-[588px]">
-                    {/* You can render mapped order rows here */}
-                </article>
+                {/* Dynamic Content: Show order history if connected */}
+                {connectedAccount ? (
+                    orderHistory.length > 0 ? (
+                        <div className="max-h-[588px] overflow-y-auto">
+                            {orderHistory.map((order, index) => (
+                                <div key={index} className="flex justify-between items-center border-b border-[#2A3441] hover:bg-[#1A1E2A] transition-colors gap-7 p-4">
+                                    {/* Time */}
+                                    <div className="flex items-center">
+                                        <span className="text-gray-400 text-xs">
+                                            {new Date(order.timestamp).toLocaleDateString()} {new Date(order.timestamp).toLocaleTimeString()}
+                                        </span>
+                                    </div>
+
+                                    {/* Type */}
+                                    <div className="flex items-center ml-2">
+                                        <span className="text-white capitalize">{order.type}</span>
+                                    </div>
+
+                                    {/* Coin */}
+                                    <div className="flex items-center">
+                                        <span className="text-white font-medium">{order.symbol}</span>
+                                    </div>
+
+                                    {/* Direction */}
+                                    <div className="flex items-center">
+                                        <span className={`capitalize font-medium ${order.side === 'buy' ? 'text-green-400' : 'text-red-400'}`}>
+                                            {order.side}
+                                        </span>
+                                    </div>
+
+                                    {/* Size */}
+                                    <div className="flex items-center">
+                                        <span className="text-white">{order.size.toFixed(6)}</span>
+                                    </div>
+
+                                    {/* Filled Size */}
+                                    <div className="flex items-center">
+                                        <span className="text-green-400">{order.filledSize.toFixed(6)}</span>
+                                    </div>
+
+                                    {/* Order Value */}
+                                    <div className="flex items-center">
+                                        <span className="text-white">${order.orderValue.toFixed(2)}</span>
+                                    </div>
+
+                                    {/* Price */}
+                                    <div className="flex items-center">
+                                        <span className="text-white">${order.price.toFixed(2)}</span>
+                                    </div>
+
+                                    {/* Reduce Only */}
+                                    <div className="flex items-center">
+                                        <span className="text-gray-400">{order.reduceOnly ? 'Yes' : 'No'}</span>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    ) : (
+                        <article className="flex flex-col justify-center items-center h-[588px]">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="37" height="37" viewBox="0 0 37 37" fill="none">
+                                <g clipPath="url(#clip0_237_1770)">
+                                    <path d="M18.5 4.5C10.768 4.5 4.5 10.768 4.5 18.5C4.5 26.232 10.768 32.5 18.5 32.5C26.232 32.5 32.5 26.232 32.5 18.5C32.5 10.768 26.232 4.5 18.5 4.5ZM18.5 6.5C25.404 6.5 30.5 11.596 30.5 18.5C30.5 25.404 25.404 30.5 18.5 30.5C11.596 30.5 6.5 25.404 6.5 18.5C6.5 11.596 11.596 6.5 18.5 6.5Z" fill="#4B5563" />
+                                </g>
+                            </svg>
+                            <h1 className="text-[#A0A9B4] text-base mb-3 mt-0.5 text-center">No order history</h1>
+                            <p className="text-[#6B7280] text-sm text-center">
+                                Your completed orders will appear here
+                            </p>
+                        </article>
+                    )
+                ) : (
+                    <article className="flex flex-col justify-center items-center h-[588px]">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="37" height="37" viewBox="0 0 37 37" fill="none">
+                            <g clipPath="url(#clip0_237_1770)">
+                                <path d="M18.5 4.5C10.768 4.5 4.5 10.768 4.5 18.5C4.5 26.232 10.768 32.5 18.5 32.5C26.232 32.5 32.5 26.232 32.5 18.5C32.5 10.768 26.232 4.5 18.5 4.5ZM18.5 6.5C25.404 6.5 30.5 11.596 30.5 18.5C30.5 25.404 25.404 30.5 18.5 30.5C11.596 30.5 6.5 25.404 6.5 18.5C6.5 11.596 11.596 6.5 18.5 6.5Z" fill="#F59E0B" />
+                            </g>
+                        </svg>
+                        <h1 className="text-[#F0B90B] text-base mb-3 mt-0.5 text-center">Connect Master Account</h1>
+                        <p className="text-[#6B7280] text-sm text-center">
+                            Connect your master account to view order history
+                        </p>
+                    </article>
+                )}
             </article>
         </>
     )
