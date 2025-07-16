@@ -1,0 +1,135 @@
+# Page snapshot
+
+```yaml
+- navigation:
+  - img
+  - heading "Hyper Max" [level=1]
+  - paragraph: Master Not Connected
+  - button "Connect Master Account"
+- navigation:
+  - heading "BTC/USDT - $0.00(+0.00%)" [level=1]
+  - button "Add Account":
+    - img
+    - text: Add Account
+- article:
+  - iframe
+- article:
+  - navigation:
+    - img
+    - paragraph: Balances
+    - img
+    - paragraph: Positions
+    - img
+    - paragraph: Open Orders
+    - img
+    - paragraph: Trade History
+    - img
+    - paragraph: Order History
+  - checkbox
+  - text: Hide Small Balances
+  - article:
+    - text: Coin Total Balance Available Balance
+    - paragraph: USDC Value
+    - img
+    - paragraph: PNL (ROE%)
+    - text: Contract
+    - article:
+      - img
+      - heading "Connect Master Account" [level=1]
+      - paragraph: Connect your master account to view balances and trading data
+- heading "TRADING CONTROLS" [level=1]
+- button "Market"
+- button "Limit"
+- paragraph: "Leverage: 0x"
+- radio "Cross" [checked]
+- img
+- text: Cross
+- radio "Isolated"
+- img
+- text: Isolated
+- slider:
+  - img
+- text: 0x 100x
+- paragraph: Take profits (7 max)
+- checkbox
+- img
+- paragraph: TP Step
+- article:
+  - checkbox
+  - img
+  - spinbutton
+  - spinbutton
+  - button "Reset"
+  - checkbox
+  - img
+  - spinbutton
+  - spinbutton
+  - button "Reset"
+  - checkbox
+  - img
+  - spinbutton
+  - spinbutton
+  - button "Reset"
+  - checkbox
+  - img
+  - spinbutton
+  - spinbutton
+  - button "Reset"
+  - checkbox
+  - img
+  - spinbutton
+  - spinbutton
+  - button "Reset"
+  - checkbox
+  - img
+  - spinbutton
+  - spinbutton
+  - button "Reset"
+  - checkbox
+  - img
+  - spinbutton
+  - spinbutton
+  - button "Reset"
+- heading "Limit order" [level=1]
+- spinbutton
+- paragraph: "Position Size: %0"
+- slider:
+  - img
+- paragraph: or
+- spinbutton: "0"
+- paragraph: "Stop Loss: 0%"
+- slider:
+  - img
+- paragraph: or
+- spinbutton: "0"
+- heading "Trigger Price" [level=2]
+- spinbutton
+- heading "Stop Price" [level=2]
+- spinbutton
+- paragraph: Market
+- paragraph: Limit
+- checkbox
+- img
+- heading "Order Split" [level=1]
+- heading "Min Price" [level=2]
+- spinbutton [disabled]
+- heading "Max Price" [level=2]
+- spinbutton [disabled]
+- 'heading "Split: 10" [level=1]'
+- slider [disabled]:
+  - img
+- text: 0 100
+- 'heading "Scale: Lower" [level=1]'
+- slider [disabled]:
+  - img
+- text: Lower band | Upper band
+- checkbox
+- img
+- heading "Enhanced Limit Chaser" [level=1]
+- article:
+  - text: Connect master account to view trading data No Agent Account (Trading Disabled)
+  - button "LONG" [disabled]
+  - button "SHORT" [disabled]
+  - button "Close All Positions" [disabled]
+  - button "Cancel All Orders" [disabled]
+```

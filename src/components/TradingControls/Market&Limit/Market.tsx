@@ -22,7 +22,11 @@ export interface TradingParams {
   scaleType: 'Lower' | 'Mid point' | 'Upper';
 }
 
-const Market = () => {
+interface MarketProps {
+  selectedOrderType?: Type; // Add prop to receive order type from parent
+}
+
+const Market = ({ selectedOrderType = "Market" }: MarketProps) => {
 
     const [leverage, setLeverage] = useState(10);
     const [value2, setValue2] = useState(10);
@@ -31,8 +35,10 @@ const Market = () => {
     const [value4, setValue4] = useState(0); // Changed to 0 for Lower
     
     const [clickedSplit, setClickedSplit] = useState<boolean>(false);
-    const [type, setType] = useState<Type>("Market");
     const [clickedBasket, setClickedBasket] = useState<boolean>(false);
+    
+    // Use the order type passed from parent instead of local state
+    const orderType = selectedOrderType;
     
     // Additional state for limit order inputs
     const [triggerPrice, setTriggerPrice] = useState<number>(0);
@@ -45,15 +51,20 @@ const Market = () => {
       leverage: value2,
       positionSize: value3[0] ?? 0,
       stopLoss: value[0] ?? 0,
-      orderType: type,
-      triggerPrice: type === "Limit" ? triggerPrice : undefined,
-      stopPrice: type === "Limit" ? stopPrice : undefined,
+      orderType: orderType,
+      triggerPrice: orderType === "Limit" ? triggerPrice : undefined,
+      stopPrice: orderType === "Limit" ? stopPrice : undefined,
       orderSplit: clickedSplit,
       minPrice: clickedSplit ? minPrice : undefined,
       maxPrice: clickedSplit ? maxPrice : undefined,
       splitCount: leverage,
       scaleType: value4 === 0 ? "Lower" : value4 === 1 ? "Mid point" : "Upper"
     };
+
+    // Debug logging to trace order type
+    console.log('🔍 Market Component - selectedOrderType:', selectedOrderType);
+    console.log('🔍 Market Component - orderType:', orderType);
+    console.log('🔍 Market Component - tradingParams:', tradingParams);
 
     return (
         <div className="flex flex-col gap-8">
@@ -162,7 +173,7 @@ const Market = () => {
                         </div>
                     </div>
                 </div>
-                <div className={`gap-5 mt-4 ${type === "Market" ? "hidden" : "flex"}`}>
+                <div className={`gap-5 mt-4 ${orderType === "Market" ? "hidden" : "flex"}`}>
                     <div className="flex flex-col gap-1.5 w-full">
                         <h2 className="text-white font-medium">Trigger Price</h2>
                         <input 
@@ -184,16 +195,9 @@ const Market = () => {
                         />
                     </div>
                 </div>
-                <div className="flex gap-4 border-b border-[#373A45] pb-4">
-                    <div onClick={() => setType("Market")} className="flex gap-[4.56px] items-center cursor-pointer">
-                        <div className={`w-3 h-3 rounded-full ${type === "Market" ? "bg-[#FFD700]" : "bg-[rgba(255,255,255,0.30)]"}`}></div>
-                        <p className="text-[rgba(255,255,255,0.70)]">Market</p>
-                    </div>
-                    <div onClick={() => setType("Limit")} className="flex gap-2 items-center cursor-pointer">
-                        <div className={`w-3 h-3 rounded-full ${type === "Limit" ? "bg-[#FFD700]" : "bg-[rgba(255,255,255,0.30)]"}`}></div>
-                        <p className="text-[rgba(255,255,255,0.90)]">Limit</p>
-                    </div>
-                </div>
+                
+                {/* Order type is controlled by parent TradingControls - no local toggle needed */}
+                
                     <div className="flex gap-3 items-center">
                         <label className="relative cursor-pointer flex">
                         <input

@@ -1,6 +1,6 @@
 import { useTrading } from '../../../hooks/useTrading';
 
-const Postions = () => {
+const Positions = () => {
     const { connectedAccount, positions } = useTrading();
 
     return (
@@ -82,7 +82,7 @@ const Postions = () => {
                                 {/* PNL (ROE%) */}
                                 <div className="min-w-[90px] flex items-center">
                                     <span className={position.pnl >= 0 ? 'text-green-400' : 'text-red-400'}>
-                                        {position.pnl >= 0 ? '+' : ''}${position.pnl.toFixed(2)} ({position.pnlPercent >= 0 ? '+' : ''}{position.pnlPercent.toFixed(2)}%)
+                                        {position.pnl >= 0 ? '+' : ''}${position.pnl.toFixed(2)} ({position.pnlPercentage >= 0 ? '+' : ''}{position.pnlPercentage.toFixed(2)}%)
                                     </span>
                                 </div>
 
@@ -128,4 +128,4 @@ const Postions = () => {
     );
 };
 
-export default Postions;
+export default Positions;

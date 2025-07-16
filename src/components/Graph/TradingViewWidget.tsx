@@ -2,8 +2,17 @@ import React, { useEffect, useRef, memo } from 'react';
 
 function TradingViewWidget() {
   const container = useRef<HTMLDivElement>(null);
+  const scriptAdded = useRef(false);
 
   useEffect(() => {
+    // Prevent multiple script injections
+    if (scriptAdded.current || !container.current) {
+      return;
+    }
+
+    // Clear any existing content first
+    container.current.innerHTML = '';
+
     const script = document.createElement("script");
     script.src = "https://s3.tradingview.com/external-embedding/embed-widget-advanced-chart.js";
     script.type = "text/javascript";
@@ -34,16 +43,15 @@ function TradingViewWidget() {
         "autosize": true
       }`;
     
-    if (container.current) {
-      container.current.appendChild(script);
-    }
+    container.current.appendChild(script);
+    scriptAdded.current = true;
 
     // Cleanup function to remove script when component unmounts
     return () => {
       if (container.current) {
-        const scripts = container.current.querySelectorAll('script');
-        scripts.forEach(script => script.remove());
+        container.current.innerHTML = '';
       }
+      scriptAdded.current = false;
     };
   }, []);
 

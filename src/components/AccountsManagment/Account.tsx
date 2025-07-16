@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import AnimateHeight from "react-animate-height";
 import { motion } from "framer-motion";
 import { useTrading } from "../../hooks/useTrading";
-import type { ConnectedAccount } from "../../contexts/TradingContext";
+import type { AgentAccount } from "../../contexts/TradingContext";
 import { verifyPrivateKeyToAddress } from "../../utils/hyperLiquidSigning";
 
 // Type definition for account data
@@ -22,7 +22,7 @@ interface AccountProps {
   acc: AccountInfo;
   id: number;
   getId: (id: number) => void;
-  getName: (name: string) => void;
+  getName?: (name: string) => void; // Make optional since not always used
 }
 
 const Account = ({ acc, id, getId, getName }: AccountProps) => {
@@ -35,29 +35,109 @@ const Account = ({ acc, id, getId, getName }: AccountProps) => {
   const [connectionStatus, setConnectionStatus] = useState<"idle" | "connected" | "error">("idle"); // Connection state
   const [errorMessage, setErrorMessage] = useState<string>(""); // Error message
   
-  // Real account data from HyperLiquid
-  const [realBalance, setRealBalance] = useState<string>("");
-  const [realPnL, setRealPnL] = useState<string>("");
-  const [realPair, setRealPair] = useState<string>("");
-  const [openOrdersCount, setOpenOrdersCount] = useState<number>(0);
+  // Dynamic trading pairs state
+  const [availablePairs, setAvailablePairs] = useState<string[]>([]);
+  const [masterPair, setMasterPair] = useState<string>(""); // Selected master pair
+  const [subscriberPair, setSubscriberPair] = useState<string>(""); // Selected subscriber pair
+  const [loadingPairs, setLoadingPairs] = useState<boolean>(false);
   
-  // Trading context to connect account for trading
-  const { setConnectedAccount } = useTrading();
+  // Trading context to connect agent account for trading
+  const { setAgentAccount } = useTrading();
   
   const cardRef = useRef<HTMLDivElement | null>(null); // Ref to detect outside clicks
+
+  // Function to fetch available trading pairs from HyperLiquid
+  const fetchTradingPairs = async () => {
+    setLoadingPairs(true);
+    try {
+      console.log('🔍 Fetching available trading pairs from HyperLiquid...');
+      
+      const response = await fetch('https://api.hyperliquid.xyz/info', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          type: "meta"
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to fetch trading pairs: ${response.status}`);
+      }
+
+      const data = await response.json();
+      
+      // Extract asset names from universe and format as trading pairs
+      const pairs: string[] = [];
+      if (data.universe && Array.isArray(data.universe)) {
+        data.universe.forEach((asset: { name?: string }) => {
+          if (asset.name) {
+            pairs.push(`${asset.name}-USD`);
+          }
+        });
+      }
+      
+      // Add some default pairs if API doesn't return any
+      if (pairs.length === 0) {
+        pairs.push('BTC-USD', 'ETH-USD', 'SOL-USD', 'HYPE-USD', 'ARB-USD');
+      }
+      
+      setAvailablePairs(pairs);
+      
+      // Set default selections to first two pairs
+      if (pairs.length >= 2) {
+        setMasterPair(pairs[0]);
+        setSubscriberPair(pairs[1]);
+      }
+      
+      console.log('✅ Successfully loaded', pairs.length, 'trading pairs');
+    } catch (error) {
+      console.error('❌ Error fetching trading pairs:', error);
+      
+      // Fallback to default pairs on error
+      const defaultPairs = ['BTC-USD', 'ETH-USD', 'SOL-USD', 'HYPE-USD', 'ARB-USD'];
+      setAvailablePairs(defaultPairs);
+      setMasterPair(defaultPairs[0]);
+      setSubscriberPair(defaultPairs[1]);
+    } finally {
+      setLoadingPairs(false);
+    }
+  };
+
+  // Load trading pairs when component mounts
+  useEffect(() => {
+    fetchTradingPairs();
+  }, []);
+
+  // Log pair selections for debugging
+  useEffect(() => {
+    if (masterChecked && masterPair) {
+      console.log(`📊 Master pair selected for Account ${acc.num}:`, masterPair);
+    }
+  }, [masterPair, masterChecked, acc.num]);
+
+  useEffect(() => {
+    if (subscriberChecked && subscriberPair) {
+      console.log(`📊 Subscriber pair selected for Account ${acc.num}:`, subscriberPair);
+    }
+  }, [subscriberPair, subscriberChecked, acc.num]);
 
   // Effect to close the card dropdown when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (cardRef.current && !cardRef.current.contains(event.target as Node)) {
-        setClicked(false);
+        // Don't close if the account is connected (maintain red border)
+        if (connectionStatus !== "connected") {
+          setClicked(false);
+        }
       }
     };
     document.addEventListener("mousedown", handleClickOutside);
     return () => {
       document.removeEventListener("mousedown", handleClickOutside);
     };
-  }, []);
+  }, [connectionStatus]); // Add connectionStatus as dependency
 
   // Handles click on the card; expands it and notifies parent of selected ID and Name
   const handleCardClick = () => {
@@ -65,7 +145,7 @@ const Account = ({ acc, id, getId, getName }: AccountProps) => {
       const next = !prev;
       if (next) {
         getId(id);
-        getName(`${acc.title} ${acc.num}`);
+        getName?.(`${acc.title} ${acc.num}`); // Use optional chaining
       }
       return next;
     });
@@ -93,14 +173,14 @@ const Account = ({ acc, id, getId, getName }: AccountProps) => {
       const verification = await verifyPrivateKeyToAddress(privateKey.trim(), publicKey.trim());
       
       if (!verification.isValid) {
-        console.error('❌ Private key verification failed:', verification.error);
+        console.error('Private key verification failed:', verification.error);
         setErrorMessage(`Private key mismatch: ${verification.error}`);
         setConnectionStatus("error");
         setIsConnecting(false);
         return;
       }
       
-      console.log('✅ Private key verification successful');
+      console.log('Private key verification successful');
       console.log('  Expected address:', publicKey.trim());
       console.log('  Derived address:', verification.actualAddress);
 
@@ -112,7 +192,7 @@ const Account = ({ acc, id, getId, getName }: AccountProps) => {
       // Test if this agent wallet is already approved by trying to fetch account data
       console.log('🔍 Testing agent wallet permissions...');
       
-      // For agent wallets, we query the agent address directly to test permissions
+      // For agent wallets, we just need to verify the wallet exists
       // The actual subaccount data would be queried separately if needed
       const accountResponse = await fetch('https://api.hyperliquid.xyz/info', {
         method: 'POST',
@@ -125,105 +205,47 @@ const Account = ({ acc, id, getId, getName }: AccountProps) => {
         }),
       });
 
-      // Also fetch open orders for the agent wallet
-      const ordersResponse = await fetch('https://api.hyperliquid.xyz/info', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          type: "openOrders",
-          user: publicKey.trim() // Query orders for the agent wallet
-        }),
-      });
-
-      if (accountResponse.ok && ordersResponse.ok) {
+      if (accountResponse.ok) {
         const accountData = await accountResponse.json();
-        const ordersData = await ordersResponse.json();
         
-        console.log('✅ Agent wallet connection successful');
-        console.log('📊 Account Data:', accountData);
-        console.log('📋 Orders Data:', ordersData);
+        console.log('Agent wallet connection successful');
+        console.log('Account Data:', accountData);
+        console.log('Agent wallet verified successfully');
         
-        // Initialize variables for real data
-        let updatedBalance = acc.balance;
-        let updatedPnL = acc.pnl;
-        let updatedPair = acc.pair;
-        let updatedOpenOrdersCount = 0;
-        
-        // Update real data from API response
-        if (accountData.marginSummary) {
-          const balance = accountData.marginSummary.accountValue;
-          const pnl = accountData.marginSummary.totalPv;
-          
-          console.log('💰 Agent wallet balance info:', { balance, pnl });
-          
-          // Update balance if we have valid data
-          if (balance !== undefined) {
-            if (parseFloat(balance) > 0) {
-              updatedBalance = `$${parseFloat(balance).toFixed(2)}`;
-              setRealBalance(updatedBalance);
-            } else {
-              // Agent wallet itself might have zero balance (normal for agent wallets)
-              updatedBalance = "$0.00 (Agent)";
-              setRealBalance(updatedBalance);
-              console.log('📝 Note: Agent wallet shows $0 balance (this is normal - funds are in subaccounts)');
-            }
-          }
-          
-          if (pnl !== undefined) {
-            updatedPnL = parseFloat(pnl) >= 0 ? `+$${parseFloat(pnl).toFixed(2)}` : `$${parseFloat(pnl).toFixed(2)}`;
-            setRealPnL(updatedPnL);
-          }
-        } else {
-          console.log('📝 No margin summary found - agent wallet confirmed but no trading data');
-          updatedBalance = "Agent Wallet";
-          setRealBalance(updatedBalance);
-        }
-
-        // Get active trading pair from positions if any
-        if (accountData.assetPositions && accountData.assetPositions.length > 0) {
-          const mainPosition = accountData.assetPositions[0];
-          if (mainPosition.position?.coin) {
-            updatedPair = `${mainPosition.position.coin}/USDT`;
-            setRealPair(updatedPair);
-          }
-        }
-
-        // Count open orders
-        if (ordersData && Array.isArray(ordersData)) {
-          updatedOpenOrdersCount = ordersData.length;
-          setOpenOrdersCount(updatedOpenOrdersCount);
-        }
-
+        // For agent accounts, we just need to verify the keys work
+        // The master account handles displaying balance/PnL data
         setConnectionStatus("connected");
-        console.log('✅ Agent wallet connected successfully with Python-compatible signing');
+        setIsConnecting(false);
+        setErrorMessage("");
+        setClicked(true); // Keep card expanded when connected
+        
+        console.log('Agent wallet connected successfully with Python-compatible signing');
         console.log('🔐 Signature verification should now work correctly with HyperLiquid');
         
-        // Set connected account for trading context with updated data
-        const connectedAccountData: ConnectedAccount = {
+        // Set agent account for trading context
+        const agentAccountData: AgentAccount = {
           accountId: acc.num,
           accountName: `${acc.title} ${acc.num}`,
           publicKey: publicKey.trim(),
           privateKey: privateKey.trim(),
-          balance: updatedBalance,
-          pnl: updatedPnL,
-          pair: updatedPair,
-          openOrdersCount: updatedOpenOrdersCount,
+          isActive: true,
           connectionStatus: "connected"
         };
         
-        setConnectedAccount(connectedAccountData);
-        console.log('Account connected for trading:', connectedAccountData.accountName);
-        console.log('Account data:', { 
-          balance: updatedBalance, 
-          pnl: updatedPnL, 
-          pair: updatedPair, 
-          openOrders: updatedOpenOrdersCount 
-        });
+        setAgentAccount(agentAccountData);
+        console.log('Agent account connected for trading:', agentAccountData.accountName);
+        console.log('Agent account ready for trade execution');
+        
+        // Log selected trading pairs if any
+        if (masterChecked && masterPair) {
+          console.log('Master pair selected:', masterPair);
+        }
+        if (subscriberChecked && subscriberPair) {
+          console.log('Subscriber pair selected:', subscriberPair);
+        }
         
       } else {
-        throw new Error(`API request failed. Account: ${accountResponse.status}, Orders: ${ordersResponse.status}`);
+        throw new Error(`API request failed. Status: ${accountResponse.status}`);
       }
     } catch (error: unknown) {
       console.error('HyperLiquid connection error:', error);
@@ -240,6 +262,7 @@ const Account = ({ acc, id, getId, getName }: AccountProps) => {
       ref={cardRef}
       onClick={handleCardClick}
       className={`self-start flex flex-col w-[460px] max-w-full bg-[#23272E] p-5 transition-all duration-300 relative rounded-xl ${
+        connectionStatus === "connected" ? "border-2 border-red-500" : 
         clicked ? "border border-[#F0B90B]" : ""
       } ${acc.selected ? "ring-2 ring-green-400" : ""}`}
       initial={{ opacity: 0, y: -10 }}
@@ -249,9 +272,14 @@ const Account = ({ acc, id, getId, getName }: AccountProps) => {
     >
       {/* Header Section */}
       <div className="flex justify-between items-center space-y-6">
-        <h1 className="title text-sm">
-          {acc.title} {acc.num}
-        </h1>
+        <div className="flex items-center gap-2">
+          <h1 className="title text-sm">
+            {acc.title} {acc.num}
+          </h1>
+          {connectionStatus === "connected" && (
+            <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse"></div>
+          )}
+        </div>
 
         {/* Selection checkbox + Status */}
         <div className="flex gap-3 items-center justify-end">
@@ -265,10 +293,12 @@ const Account = ({ acc, id, getId, getName }: AccountProps) => {
                 e.stopPropagation();
                 getId(id);
 
-                // Reset internal toggles if unchecking
+                // Reset internal toggles and pair selections if unchecking
                 if (!e.target.checked) {
                   setMasterChecked(false);
                   setSubscriberChecked(false);
+                  setMasterPair("");
+                  setSubscriberPair("");
                 }
               }}
             />
@@ -289,19 +319,21 @@ const Account = ({ acc, id, getId, getName }: AccountProps) => {
           {/* Status tag */}
           <div
             className={`text-xs font-medium px-2 py-[2px] rounded ${
-              acc.status === "INACTIVE"
+              connectionStatus === "connected" 
+                ? "text-[#00FF4B] bg-[rgba(0,255,75,0.10)]"
+                : acc.status === "INACTIVE" || acc.status === "Not Connected"
                 ? "text-[#FF3838] bg-[rgba(255,0,0,0.10)]"
                 : "text-[#00FF4B]"
             }`}
           >
-            {acc.status}
+            {connectionStatus === "connected" ? "Connected" : acc.status}
           </div>
         </div>
       </div>
 
       {/* Pair and leverage info */}
       <div className="flex justify-between text-[rgba(255,255,255,0.70)] text-xs">
-        <p>{connectionStatus === "connected" && realPair ? realPair : acc.pair}</p>
+        <p>{acc.pair}</p>
         <p>{acc.leverage}</p>
       </div>
 
@@ -310,12 +342,12 @@ const Account = ({ acc, id, getId, getName }: AccountProps) => {
         <p className="text-[rgba(255,255,255,0.70)] text-xs">
           Balance:{" "}
           <span className="text-white font-bold text-xs">
-            {connectionStatus === "connected" && realBalance ? realBalance : acc.balance}
+            {acc.balance}
           </span>
         </p>
         <p className="text-[rgba(255,255,255,0.70)] text-xs">
           PnL: <span className="text-white font-bold text-xs">
-            {connectionStatus === "connected" && realPnL ? realPnL : acc.pnl}
+            {acc.pnl}
           </span>
         </p>
       </div>
@@ -324,7 +356,9 @@ const Account = ({ acc, id, getId, getName }: AccountProps) => {
       {connectionStatus === "connected" && (
         <div className="mt-2">
           <p className="text-[rgba(255,255,255,0.70)] text-xs">
-            Open Orders: <span className="text-white font-bold text-xs">{openOrdersCount}</span>
+            Open Orders: <span className="text-white font-bold text-xs">
+              {acc.status === "ACTIVE" ? "Loading..." : "N/A"}
+            </span>
           </p>
         </div>
       )}
@@ -334,7 +368,6 @@ const Account = ({ acc, id, getId, getName }: AccountProps) => {
         <div className="mt-4 pt-4 flex flex-col gap-4 text-white text-sm">
           {/* API Key inputs */}
           <div className="flex flex-col gap-2">
-            <h3 className="text-xs text-gray-400 font-semibold">HyperLiquid Trading Setup</h3>
             <input
               type="text"
               placeholder="Wallet Address (0x...)"
@@ -345,21 +378,21 @@ const Account = ({ acc, id, getId, getName }: AccountProps) => {
             />
             <input
               type="password"
-              placeholder="Private Key (for trading)"
+              placeholder="Private Key (for trading operations)"
               value={privateKey}
               onChange={(e) => setPrivateKey(e.target.value)}
               className="bg-[#1f2228] border border-gray-600 px-3 py-2 rounded-md text-xs"
               onClick={e => e.stopPropagation()}
             />
             <div className="text-xs text-gray-400">
-              Enter your wallet address and private key for trading
+              Add agent account with private key for executing trades (separate from master account)
             </div>
 
             {/* Connection status indicator */}
             {connectionStatus === "connected" && (
               <div className="flex items-center gap-2 text-green-400 text-xs">
                 <div className="w-2 h-2 bg-green-400 rounded-full"></div>
-                Trading enabled - Live data connected
+                Agent account connected - Ready for trading
               </div>
             )}
             
@@ -394,9 +427,14 @@ const Account = ({ acc, id, getId, getName }: AccountProps) => {
               <span className="relative flex items-center">
                 <input
                   type="checkbox"
-                  disabled={!clicked || !acc.selected}
+                  disabled={!clicked} // Only require card to be expanded
                   checked={masterChecked}
-                  onChange={e => setMasterChecked(e.target.checked)}
+                  onChange={e => {
+                    setMasterChecked(e.target.checked);
+                    if (!e.target.checked) {
+                      setMasterPair(""); // Reset selection when unchecked
+                    }
+                  }}
                   onClick={e => e.stopPropagation()}
                   className="cursor-pointer peer appearance-none h-[16px] w-[16px] shrink-0 rounded-xs border-2 border-[#787b7f] bg-transparent checked:bg-blue-500 checked:border-blue-500 disabled:opacity-50"
                 />
@@ -420,9 +458,14 @@ const Account = ({ acc, id, getId, getName }: AccountProps) => {
               <span className="relative flex items-center">
                 <input
                   type="checkbox"
-                  disabled={!clicked || !acc.selected}
+                  disabled={!clicked} // Only require card to be expanded
                   checked={subscriberChecked}
-                  onChange={e => setSubscriberChecked(e.target.checked)}
+                  onChange={e => {
+                    setSubscriberChecked(e.target.checked);
+                    if (!e.target.checked) {
+                      setSubscriberPair(""); // Reset selection when unchecked
+                    }
+                  }}
                   onClick={e => e.stopPropagation()}
                   className="cursor-pointer peer appearance-none h-[16px] w-[16px] shrink-0 rounded-xs border-2 border-[#787b7f] bg-transparent checked:bg-blue-500 checked:border-blue-500 disabled:opacity-50"
                 />
@@ -443,21 +486,52 @@ const Account = ({ acc, id, getId, getName }: AccountProps) => {
             </label>
           </div>
 
+          {/* Show selected pairs */}
+          {(masterChecked && masterPair) || (subscriberChecked && subscriberPair) ? (
+            <div className="mt-2 p-2 bg-[#1a1b24] rounded-md border border-gray-700">
+              <div className="text-xs text-gray-300 mb-1">Selected Trading Pairs:</div>
+              {masterChecked && masterPair && (
+                <div className="text-xs text-green-400">Master: {masterPair}</div>
+              )}
+              {subscriberChecked && subscriberPair && (
+                <div className="text-xs text-blue-400">Subscriber: {subscriberPair}</div>
+              )}
+            </div>
+          ) : null}
+
           {/* Dropdowns for selecting trading pairs */}
           <div className="flex justify-between gap-4">
-            <select className="w-full bg-[#1f2228] border border-gray-600 px-3 py-2 rounded-md text-xs"   onClick={e => e.stopPropagation()}>
-              <option>BTC-USD</option>
-              <option>ETH-USD</option>
-              <option>SOL-USD</option>
-              <option>HYPE-USD</option>
-              <option>ARB-USD</option>
+            <select 
+              className="w-full bg-[#1f2228] border border-gray-600 px-3 py-2 rounded-md text-xs"   
+              onClick={e => e.stopPropagation()}
+              value={masterPair}
+              onChange={e => setMasterPair(e.target.value)}
+              disabled={!masterChecked || loadingPairs || !clicked}
+            >
+              <option value="">
+                {loadingPairs ? "Loading pairs..." : "Select Master Pair"}
+              </option>
+              {availablePairs.map((pair) => (
+                <option key={pair} value={pair}>
+                  {pair}
+                </option>
+              ))}
             </select>
-            <select className="w-full bg-[#1f2228] border border-gray-600 px-3 py-2 rounded-md text-xs"  onClick={e => e.stopPropagation()}>
-              <option>BTC-USD</option>
-              <option>ETH-USD</option>
-              <option>SOL-USD</option>
-              <option>HYPE-USD</option>
-              <option>ARB-USD</option>
+            <select 
+              className="w-full bg-[#1f2228] border border-gray-600 px-3 py-2 rounded-md text-xs"  
+              onClick={e => e.stopPropagation()}
+              value={subscriberPair}
+              onChange={e => setSubscriberPair(e.target.value)}
+              disabled={!subscriberChecked || loadingPairs || !clicked}
+            >
+              <option value="">
+                {loadingPairs ? "Loading pairs..." : "Select Subscriber Pair"}
+              </option>
+              {availablePairs.map((pair) => (
+                <option key={pair} value={pair}>
+                  {pair}
+                </option>
+              ))}
             </select>
           </div>
         </div>

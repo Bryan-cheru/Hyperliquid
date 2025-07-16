@@ -36,13 +36,14 @@ const MidUp = ({ setModal }: Props) => {
             </h1>
             {connectedAccount && (
               <div className="text-sm text-gray-400">
-                • {connectedAccount.accountName}
+                • Master: {connectedAccount.accountName}
               </div>
             )}
           </div>
           
           <button 
             onClick={handleModal} 
+            data-testid="accounts-tab"
             className={`flex py-[5px] h-9 items-center gap-2 px-2.5 text-white cursor-pointer text-xs font-bold rounded-[4px] transition-colors ${
               connectedAccount 
                 ? 'bg-[#24293A] hover:bg-[#2A3142] border border-[#373A45]' 

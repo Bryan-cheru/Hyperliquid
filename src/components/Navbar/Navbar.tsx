@@ -38,14 +38,14 @@ const Navbar = ({ accNum }: Props) => {
               <div className="flex gap-8 mr-3 items-center">
                   {connectedAccount ? (
                     <>
-                      {/* Connection Status */}
+                      {/* Master Account Status */}
                       <div className="flex gap-1.5 items-center">
-                          <div className="bg-[#00FF4D] rounded-full w-[9px] h-[9px]"></div>
-                          <p className="text-base text-[#FBF9F9]">Connected</p>
+                          <div className="bg-[#3B82F6] rounded-full w-[9px] h-[9px]"></div>
+                          <p className="text-base text-[#FBF9F9]">Master Connected</p>
                           <button
                             onClick={handleDisconnect}
                             className="ml-2 text-xs text-gray-400 hover:text-red-400 transition-colors"
-                            title="Disconnect account"
+                            title="Disconnect master account"
                           >
                             ✕
                           </button>
@@ -65,9 +65,9 @@ const Navbar = ({ accNum }: Props) => {
                           </p>
                       </div>
 
-                      {/* Account Info */}
+                      {/* Master Account Info */}
                       <div>
-                          <p className="text-base text-[#FBF9F9]">Account: <span className="font-bold text-white">{connectedAccount.accountName}</span></p>
+                          <p className="text-base text-[#FBF9F9]">Master: <span className="font-bold text-white">{connectedAccount.accountName}</span></p>
                       </div>
                     </>
                   ) : (
@@ -75,7 +75,7 @@ const Navbar = ({ accNum }: Props) => {
                       {/* Disconnected Status */}
                       <div className="flex gap-1.5 items-center">
                           <div className="bg-red-500 rounded-full w-[9px] h-[9px]"></div>
-                          <p className="text-base text-gray-400">Not Connected</p>
+                          <p className="text-base text-gray-400">Master Not Connected</p>
                       </div>
 
                       {/* Connect Button */}

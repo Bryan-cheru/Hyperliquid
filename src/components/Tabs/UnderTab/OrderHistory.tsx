@@ -7,7 +7,7 @@ const OrderHistory = () => {
     const orderHistory = tradeHistory.map(trade => ({
         id: trade.id,
         timestamp: trade.timestamp,
-        type: 'limit' as const,
+        type: trade.type || 'limit', // Use the actual order type from trade history
         symbol: trade.symbol,
         side: trade.side,
         size: trade.quantity,

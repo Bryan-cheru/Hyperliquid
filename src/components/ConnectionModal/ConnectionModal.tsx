@@ -69,7 +69,7 @@ const ConnectionModal: React.FC<ConnectionModalProps> = ({ isOpen, onClose }) =>
     <div className="fixed inset-0 flex items-center justify-center z-50 backdrop-blur-[2px]">
       <div className="bg-[#181C29] rounded-lg p-6 w-full max-w-md mx-4 border border-[#373A45]">
         <div className="flex justify-between items-center mb-6">
-          <h2 className="text-xl font-bold text-[#F0B90B]">Connect Master Account</h2>
+          <h2 className="text-xl font-bold text-[#3B82F6]">Connect Master Account (View Only)</h2>
           <button
             onClick={handleClose}
             className="text-gray-400 hover:text-white transition-colors"
