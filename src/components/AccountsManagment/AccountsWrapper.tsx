@@ -299,6 +299,7 @@ const AccountsWrapper = ({ setAccNum, setModal }: Props) => {
         <div className="grid grid-cols-3 gap-3 mb-5 items-start">
           <input
             type="text"
+            data-testid="account-name-input"
             placeholder="Enter Account Name"
             value={accountNameInput}
             onChange={(e) => setAccountNameInput(e.target.value)}

@@ -591,9 +591,9 @@ export const TradingProvider = ({ children }: { children: ReactNode }) => {
     setIsTrading(true);
     
     try {
-      console.log('Closing all positions for agent account:', agentAccount.publicKey);
+      console.log('🔍 Fetching positions for agent account:', agentAccount.publicKey);
       
-      // First, fetch all open positions
+      // First, fetch all open positions using the agent account
       const positionsResponse = await fetch('https://api.hyperliquid.xyz/info', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -604,90 +604,144 @@ export const TradingProvider = ({ children }: { children: ReactNode }) => {
       });
 
       if (!positionsResponse.ok) {
-        throw new Error('Failed to fetch positions');
+        throw new Error(`Failed to fetch positions: ${positionsResponse.status}`);
       }
 
       const positionsData = await positionsResponse.json();
+      console.log('📊 Raw positions data:', positionsData);
+      
+      // Better position filtering - check for non-zero positions
       const openPositions = positionsData.assetPositions?.filter(
-        (pos: { position: { szi: string } }) => parseFloat(pos.position.szi) !== 0
+        (pos: { position: { szi: string; coin: string } }) => {
+          const size = parseFloat(pos.position.szi || "0");
+          return size !== 0 && Math.abs(size) > 0;
+        }
       ) || [];
 
+      console.log(`Found ${openPositions.length} open positions:`, openPositions.map((p: any) => ({
+        coin: p.position.coin,
+        size: p.position.szi,
+        value: p.position.positionValue
+      })));
+
       if (openPositions.length === 0) {
-        return { success: true, message: "No open positions to close" };
+        return { success: true, message: "No open positions found to close" };
       }
 
-      console.log(`Found ${openPositions.length} positions to close`);
+      // Fetch asset metadata to get proper asset indices
+      const metaResponse = await fetch('https://api.hyperliquid.xyz/info', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ type: "meta" })
+      });
+
+      if (!metaResponse.ok) {
+        throw new Error('Failed to fetch asset metadata for position closing');
+      }
+
+      const metaData = await metaResponse.json();
       
-      // Enable real position closing
+      console.log(`📋 Attempting to close ${openPositions.length} positions...`);
+      
       let closedCount = 0;
-      try {
-        for (const position of openPositions) {
-          const assetIndex = position.position.coin;
-          const size = Math.abs(parseFloat(position.position.szi));
-          const isBuy = parseFloat(position.position.szi) < 0; // Opposite side to close
+      const errors: string[] = [];
+      
+      for (const position of openPositions) {
+        try {
+          const coinName = position.position.coin;
+          const positionSize = parseFloat(position.position.szi);
+          
+          // Find the asset index for this coin
+          const assetIndex = metaData.universe.findIndex((asset: { name: string }) => asset.name === coinName);
+          
+          if (assetIndex === -1) {
+            errors.push(`Asset ${coinName} not found in universe`);
+            continue;
+          }
+          
+          const closeSize = Math.abs(positionSize);
+          const isCloseOrderBuy = positionSize < 0; // If we're short, we buy to close
+          
+          console.log(`🔄 Closing ${coinName} position: size=${positionSize}, closeSize=${closeSize}, buy=${isCloseOrderBuy}`);
           
           const closeAction = {
             type: "order",
             orders: [{
-              a: assetIndex,
-              b: isBuy,
-              p: "0", // Market order
-              s: size.toString(),
+              a: assetIndex, // Use proper asset index
+              b: isCloseOrderBuy, // Opposite side to close position
+              p: isCloseOrderBuy ? "999999" : "0.01", // Market order with extreme price
+              s: closeSize.toString(),
               r: true, // reduceOnly = true for closing positions
-              t: { limit: { tif: "Ioc" } }
+              t: { limit: { tif: "Ioc" } } // Immediate or Cancel
             }],
-            grouping: "na" as const
+            grouping: "na"
           };
 
+          const nonce = Date.now() + closedCount * 10; // Ensure unique nonces
           const closeOrderPayload = {
             action: closeAction,
-            nonce: Date.now() + closedCount, // Unique nonce for each order
-            signature: await signOrderAction(closeAction, Date.now() + closedCount, agentAccount.privateKey)
+            nonce,
+            signature: await signOrderAction(closeAction, nonce, agentAccount.privateKey, undefined),
+            vaultAddress: null
           };
           
-          try {
-            const response = await fetch('https://api.hyperliquid.xyz/exchange', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify(closeOrderPayload)
-            });
-            
-            if (response.ok) {
+          console.log(`📤 Sending close order for ${coinName}:`, closeAction);
+          
+          const response = await fetch('https://api.hyperliquid.xyz/exchange', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(closeOrderPayload)
+          });
+          
+          const responseText = await response.text();
+          console.log(`📥 Close order response for ${coinName}:`, response.status, responseText);
+          
+          if (response.ok) {
+            const result = JSON.parse(responseText);
+            if (result.status === "ok") {
               closedCount++;
-              console.log(`✅ Closed position ${closedCount}/${openPositions.length}`);
+              console.log(`✅ Successfully closed ${coinName} position (${closedCount}/${openPositions.length})`);
+            } else {
+              errors.push(`${coinName}: ${result.response || 'Unknown error'}`);
             }
-          } catch (error) {
-            console.log(`❌ Failed to close position: ${error}`);
+          } else {
+            errors.push(`${coinName}: HTTP ${response.status}`);
           }
           
-          // Small delay between orders
-          await new Promise(resolve => setTimeout(resolve, 100));
+          // Small delay between orders to avoid rate limiting
+          await new Promise(resolve => setTimeout(resolve, 200));
+          
+        } catch (error) {
+          const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+          errors.push(`${position.position.coin}: ${errorMsg}`);
+          console.error(`❌ Error closing position for ${position.position.coin}:`, error);
         }
-        
-        // Refresh all relevant data after closing positions
-        console.log('🔄 Refreshing account data after closing positions...');
-        try {
-          await refreshAllData();
-        } catch (refreshError) {
-          console.warn('⚠️ Failed to refresh data after closing positions:', refreshError);
-        }
-        
-        return {
-          success: true,
-          message: closedCount > 0 
-            ? `Successfully closed ${closedCount}/${openPositions.length} position(s)`
-            : `Attempted to close ${openPositions.length} position(s) - check Trade History`
-        };
-        
-      } catch (error) {
+      }
+      
+      // Refresh data after attempting to close positions
+      console.log('🔄 Refreshing account data after position closing attempts...');
+      try {
+        await refreshAllData();
+      } catch (refreshError) {
+        console.warn('⚠️ Failed to refresh data after closing positions:', refreshError);
+      }
+      
+      if (closedCount === 0 && errors.length > 0) {
         return {
           success: false,
-          message: `Closed ${closedCount} positions, error on others: ${error instanceof Error ? error.message : 'Unknown error'}`
+          message: `Failed to close positions: ${errors.join(', ')}`
         };
       }
       
+      return {
+        success: true,
+        message: closedCount > 0 
+          ? `Successfully closed ${closedCount}/${openPositions.length} position(s)${errors.length > 0 ? `. Errors: ${errors.join(', ')}` : ''}`
+          : `Attempted to close ${openPositions.length} position(s) - check positions and trade history`
+      };
+      
     } catch (error) {
-      console.error('Failed to close positions:', error);
+      console.error('❌ Failed to close positions:', error);
       return {
         success: false,
         message: error instanceof Error ? error.message : 'Failed to close positions'
@@ -706,9 +760,9 @@ export const TradingProvider = ({ children }: { children: ReactNode }) => {
     setIsTrading(true);
     
     try {
-      console.log('Cancelling all orders for agent account:', agentAccount.publicKey);
+      console.log('🔍 Fetching open orders for agent account:', agentAccount.publicKey);
       
-      // First, fetch all open orders
+      // First, fetch all open orders using the agent account
       const ordersResponse = await fetch('https://api.hyperliquid.xyz/info', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -719,69 +773,121 @@ export const TradingProvider = ({ children }: { children: ReactNode }) => {
       });
 
       if (!ordersResponse.ok) {
-        throw new Error('Failed to fetch open orders');
+        throw new Error(`Failed to fetch open orders: ${ordersResponse.status}`);
       }
 
       const ordersData = await ordersResponse.json();
+      console.log('📊 Raw orders data:', ordersData);
       
       if (!Array.isArray(ordersData) || ordersData.length === 0) {
-        return { success: true, message: "No open orders to cancel" };
+        return { success: true, message: "No open orders found to cancel" };
       }
 
-      console.log(`Found ${ordersData.length} orders to cancel`);
+      console.log(`📋 Found ${ordersData.length} open orders:`, ordersData.map((order: any) => ({
+        coin: order.coin,
+        oid: order.oid,
+        side: order.side,
+        sz: order.sz,
+        limitPx: order.limitPx
+      })));
+
+      // Fetch asset metadata to ensure we have proper asset indices
+      const metaResponse = await fetch('https://api.hyperliquid.xyz/info', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ type: "meta" })
+      });
+
+      if (!metaResponse.ok) {
+        throw new Error('Failed to fetch asset metadata for order cancellation');
+      }
+
+      const metaData = await metaResponse.json();
       
-      // Enable real order cancellation
-      const cancels = ordersData.map((order: { coin: number; oid: number }) => ({
-        a: order.coin, // asset
-        o: order.oid   // order id
-      }));
+      // Build cancellation requests with proper asset indices
+      const cancels = ordersData.map((order: { coin: string; oid: number }) => {
+        const assetIndex = metaData.universe.findIndex((asset: { name: string }) => asset.name === order.coin);
+        
+        if (assetIndex === -1) {
+          console.warn(`⚠️ Asset ${order.coin} not found in universe for order ${order.oid}`);
+          return null;
+        }
+        
+        return {
+          a: assetIndex, // Use proper asset index instead of coin name
+          o: order.oid   // order id
+        };
+      }).filter(Boolean); // Remove null entries
       
-      const cancelPayload = {
-        action: {
-          type: "cancel",
-          cancels: cancels
-        },
-        nonce: Date.now(),
-        signature: await signOrderAction({ type: "cancel", cancels: cancels }, Date.now(), agentAccount.privateKey)
+      if (cancels.length === 0) {
+        return { success: false, message: "No valid orders found to cancel (asset mapping failed)" };
+      }
+
+      console.log(`📤 Sending cancellation for ${cancels.length} orders:`, cancels);
+      
+      const cancelAction = {
+        type: "cancel",
+        cancels: cancels
       };
       
-      try {
-        const cancelResponse = await fetch('https://api.hyperliquid.xyz/exchange', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(cancelPayload)
-        });
-        
-        if (!cancelResponse.ok) {
-          throw new Error('Failed to cancel orders via API');
-        }
-        
-        const result = await cancelResponse.json();
-        console.log('✅ Cancel orders result:', result);
-        
-        // Refresh all relevant data after cancelling orders
-        console.log('🔄 Refreshing account data after cancelling orders...');
-        try {
-          await refreshAllData();
-        } catch (refreshError) {
-          console.warn('⚠️ Failed to refresh data after cancelling orders:', refreshError);
-        }
-        
-        return {
-          success: true,
-          message: `Successfully cancelled ${ordersData.length} order(s)`
-        };
-        
-      } catch (error) {
-        console.log(`❌ Cancel API failed: ${error}`);
+      const nonce = Date.now();
+      const cancelPayload = {
+        action: cancelAction,
+        nonce,
+        signature: await signOrderAction(cancelAction, nonce, agentAccount.privateKey, undefined),
+        vaultAddress: null
+      };
+      
+      const cancelResponse = await fetch('https://api.hyperliquid.xyz/exchange', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(cancelPayload)
+      });
+      
+      const responseText = await cancelResponse.text();
+      console.log('📥 Cancel orders response:', cancelResponse.status, responseText);
+      
+      if (!cancelResponse.ok) {
         return {
           success: false,
-          message: `Cancel request sent for ${ordersData.length} order(s) - check Order History`
+          message: `Failed to cancel orders: HTTP ${cancelResponse.status} - ${responseText}`
+        };
+      }
+      
+      let result;
+      try {
+        result = JSON.parse(responseText);
+      } catch {
+        return {
+          success: false,
+          message: `Invalid response when cancelling orders: ${responseText}`
+        };
+      }
+      
+      console.log('✅ Cancel orders result:', result);
+      
+      // Refresh all relevant data after cancelling orders
+      console.log('🔄 Refreshing account data after cancelling orders...');
+      try {
+        await refreshAllData();
+      } catch (refreshError) {
+        console.warn('⚠️ Failed to refresh data after cancelling orders:', refreshError);
+      }
+      
+      if (result.status === "ok") {
+        return {
+          success: true,
+          message: `Successfully cancelled ${cancels.length} order(s)`
+        };
+      } else {
+        return {
+          success: false,
+          message: `Cancel request processed but may have failed: ${result.response || 'Check order status'}`
         };
       }
       
     } catch (error) {
-      console.error('Failed to cancel orders:', error);
+      console.error('❌ Failed to cancel orders:', error);
       return {
         success: false,
         message: error instanceof Error ? error.message : 'Failed to cancel orders'

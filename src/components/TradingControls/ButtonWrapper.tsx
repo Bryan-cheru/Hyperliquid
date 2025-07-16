@@ -90,7 +90,7 @@ const ButtonWrapper = ({ tradingParams }: ButtonWrapperProps) => {
               <div className="space-y-1">
                 {connectedAccount ? (
                   <span className="text-blue-400">
-                    👁️ Master: {connectedAccount.accountName} (Data Source)
+                     Master: {connectedAccount.accountName} (Data Source)
                   </span>
                 ) : (
                   <span className="text-gray-400">
@@ -100,11 +100,11 @@ const ButtonWrapper = ({ tradingParams }: ButtonWrapperProps) => {
                 <div>
                   {agentAccount ? (
                     <span className="text-green-400">
-                      🤖 Agent: {agentAccount.accountName} (Trading Ready)
+                       Agent: {agentAccount.accountName} (Trading Ready)
                     </span>
                   ) : (
                     <span className="text-red-400">
-                      🤖 No Agent Account (Trading Disabled)
+                       No Agent Account (Trading Disabled)
                     </span>
                   )}
                 </div>
@@ -112,7 +112,7 @@ const ButtonWrapper = ({ tradingParams }: ButtonWrapperProps) => {
             </div>
 
             {/* Trading Parameters Display - Show current UI values */}
-            <div className="text-xs text-left w-full bg-[#24293A] p-2 rounded-md mb-2">
+            {/* <div className="text-xs text-left w-full bg-[#24293A] p-2 rounded-md mb-2">
               <div className="text-yellow-400 font-semibold mb-1">📊 Current Trading Settings:</div>
               {tradingParams ? (
                 <div className="text-gray-300 space-y-0.5">
@@ -130,7 +130,7 @@ const ButtonWrapper = ({ tradingParams }: ButtonWrapperProps) => {
               ) : (
                 <div className="text-gray-400">No trading parameters available</div>
               )}
-            </div>
+            </div> */}
 
             {/* Status Message */}
             {statusMessage && (

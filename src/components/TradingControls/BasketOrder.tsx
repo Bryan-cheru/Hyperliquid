@@ -154,6 +154,7 @@ const BasketOrder: React.FC<BasketOrderProps> = ({ clicked, setClicked }) => {
           <label className="relative cursor-pointer flex">
             <input
               type="checkbox"
+              data-testid="basket-orders-toggle"
               onChange={() => setClicked(prev => !prev)}
               checked={clicked}
               className="cursor-pointer peer appearance-none h-[22px] w-[22px] shrink-0 rounded-xs border-2 border-[#787b7f] bg-transparent checked:bg-blue-500 checked:border-blue-500"
@@ -176,6 +177,7 @@ const BasketOrder: React.FC<BasketOrderProps> = ({ clicked, setClicked }) => {
         {/* Tab Navigation */}
         <div className="flex gap-2 border-b border-[#373A45] pb-2">
           <button
+            data-testid="create-basket-tab"
             onClick={() => setActiveTab('create')}
             className={`px-4 py-2 rounded text-sm font-medium ${
               activeTab === 'create' 
@@ -206,6 +208,7 @@ const BasketOrder: React.FC<BasketOrderProps> = ({ clicked, setClicked }) => {
                 <label className="block text-sm text-gray-300 mb-1">Basket Name</label>
                 <input
                   type="text"
+                  data-testid="basket-name-input"
                   value={formData.name}
                   onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
                   className="w-full px-3 py-2 bg-[#24293A] border border-[#373A45] rounded text-white text-sm"
@@ -215,6 +218,7 @@ const BasketOrder: React.FC<BasketOrderProps> = ({ clicked, setClicked }) => {
               <div>
                 <label className="block text-sm text-gray-300 mb-1">Symbol</label>
                 <select
+                  data-testid="basket-symbol-select"
                   value={formData.symbol}
                   onChange={(e) => setFormData(prev => ({ ...prev, symbol: e.target.value }))}
                   className="w-full px-3 py-2 bg-[#24293A] border border-[#373A45] rounded text-white text-sm"
@@ -230,6 +234,7 @@ const BasketOrder: React.FC<BasketOrderProps> = ({ clicked, setClicked }) => {
               <div>
                 <label className="block text-sm text-gray-300 mb-1">Side</label>
                 <select
+                  data-testid="basket-side-select"
                   value={formData.side}
                   onChange={(e) => setFormData(prev => ({ ...prev, side: e.target.value as 'buy' | 'sell' }))}
                   className="w-full px-3 py-2 bg-[#24293A] border border-[#373A45] rounded text-white text-sm"
@@ -243,6 +248,7 @@ const BasketOrder: React.FC<BasketOrderProps> = ({ clicked, setClicked }) => {
                 <input
                   type="number"
                   step="0.001"
+                  data-testid="basket-quantity-input"
                   value={formData.quantity}
                   onChange={(e) => setFormData(prev => ({ ...prev, quantity: parseFloat(e.target.value) || 0 }))}
                   className="w-full px-3 py-2 bg-[#24293A] border border-[#373A45] rounded text-white text-sm"
@@ -432,6 +438,7 @@ const BasketOrder: React.FC<BasketOrderProps> = ({ clicked, setClicked }) => {
 
             {/* Create Button */}
             <button
+              data-testid="create-basket-button"
               onClick={handleCreateBasket}
               disabled={!agentAccount}
               className="w-full py-3 bg-[#F0B90B] text-black font-bold rounded hover:bg-[#E6A509] disabled:opacity-50 disabled:cursor-not-allowed"

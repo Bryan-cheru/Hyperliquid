@@ -197,7 +197,7 @@ class BasketOrderManagerImpl implements BasketOrderManager {
       // Place new limit chaser order
       const orderResult = await this.placeOrder({
         symbol: basket.symbol,
-        side: basket.side === 'buy' ? 'sell' : 'buy', // Opposite side for closing
+        side: (basket.side === 'buy' ? 'sell' : 'buy') as 'buy' | 'sell', // Opposite side for closing
         type: 'limit',
         quantity: basket.entryOrder.quantity,
         price: newPrice,
@@ -235,7 +235,7 @@ class BasketOrderManagerImpl implements BasketOrderManager {
       // Execute stop loss order
       const stopLossOrder = {
         symbol: basket.symbol,
-        side: basket.side === 'buy' ? 'sell' : 'buy', // Opposite side
+        side: (basket.side === 'buy' ? 'sell' : 'buy') as 'buy' | 'sell', // Opposite side
         type: basket.stopLoss.orderType,
         quantity: basket.entryOrder.quantity,
         price: basket.stopLoss.limitPrice || marketPrice
@@ -279,7 +279,7 @@ class BasketOrderManagerImpl implements BasketOrderManager {
     try {
       const orderResult = await this.placeOrder({
         symbol: basket.symbol,
-        side: basket.side === 'buy' ? 'sell' : 'buy',
+        side: (basket.side === 'buy' ? 'sell' : 'buy') as 'buy' | 'sell',
         type: takeProfit.orderType,
         quantity: basket.entryOrder.quantity * (takeProfit.quantity / 100),
         price: takeProfit.targetPrice
@@ -387,7 +387,10 @@ class BasketOrderManagerImpl implements BasketOrderManager {
     try {
       // Get current market price
       const currentPrice = await marketDataService.getPrice(basket.symbol);
-      if (!currentPrice) return;
+      if (!currentPrice) {
+        console.warn(`⚠️ No market price available for ${basket.symbol} limit chaser`);
+        return;
+      }
       
       // Calculate new chase price
       const distance = basket.limitChaser.distanceType === 'percentage' 
@@ -398,28 +401,162 @@ class BasketOrderManagerImpl implements BasketOrderManager {
         ? currentPrice - distance  // Buy below market
         : currentPrice + distance; // Sell above market
       
-      await this.updateLimitChaser(basketId, newPrice);
+      console.log(`🏃‍♂️ Limit chaser update for ${basket.symbol}: Current=${currentPrice}, NewPrice=${newPrice}, Distance=${basket.limitChaser.distance}${basket.limitChaser.distanceType === 'percentage' ? '%' : ''}`);
+      
+      // Cancel existing limit chaser order if any
+      if (basket.activeOrders.limitChaserOrderId) {
+        console.log(`🛑 Cancelling previous limit chaser order: ${basket.activeOrders.limitChaserOrderId}`);
+        await this.cancelOrder(basket.activeOrders.limitChaserOrderId);
+      }
+      
+      // Place new limit chaser order with IOC if Fill-or-Cancel is enabled
+      const orderResult = await this.placeOrder({
+        symbol: basket.symbol,
+        side: basket.side,
+        type: 'limit',
+        quantity: basket.entryOrder.quantity,
+        price: newPrice,
+        timeInForce: basket.limitChaser.fillOrCancel ? 'IOC' : 'GTC', // Immediate or Cancel vs Good Till Cancelled
+        leverage: basket.entryOrder.leverage
+      });
+      
+      if (orderResult.success) {
+        basket.activeOrders.limitChaserOrderId = orderResult.orderId;
+        basket.limitChaser.chaseCount++;
+        basket.updatedAt = Date.now();
+        
+        this.log(basketId, 'limit_chaser_updated', 
+          `Limit chaser order ${basket.limitChaser.chaseCount}/${basket.limitChaser.maxChases}: ${newPrice} (${basket.limitChaser.fillOrCancel ? 'IOC' : 'GTC'})`);
+        
+        console.log(`📊 Limit chaser order placed: ${orderResult.orderId} at ${newPrice} (Chase ${basket.limitChaser.chaseCount}/${basket.limitChaser.maxChases})`);
+        
+        // Check if this was an IOC order and if it was cancelled
+        if (basket.limitChaser.fillOrCancel) {
+          setTimeout(async () => {
+            await this.checkIOCOrderStatus(basketId, orderResult.orderId!);
+          }, 1000); // Check after 1 second
+        }
+        
+        this.saveBaskets();
+      } else {
+        console.error(`❌ Failed to place limit chaser order for ${basket.symbol}`);
+        this.log(basketId, 'limit_chaser_failed', 'Failed to place limit chaser order');
+      }
+      
     } catch (error) {
-      console.error('Error updating limit chaser price:', error);
+      console.error(`❌ Error updating limit chaser for ${basketId}:`, error);
+      this.log(basketId, 'limit_chaser_error', `Limit chaser error: ${error}`);
+    }
+  }
+
+  // Check if IOC order was filled or cancelled
+  private async checkIOCOrderStatus(basketId: string, orderId: string): Promise<void> {
+    const basket = this.baskets.get(basketId);
+    if (!basket) return;
+    
+    try {
+      // Check order status (this would need to be implemented based on your trading API)
+      const orderStatus = await this.getOrderStatus(orderId);
+      
+      if (orderStatus === 'cancelled') {
+        console.log(`⏰ IOC limit chaser order cancelled: ${orderId}`);
+        basket.activeOrders.limitChaserOrderId = undefined;
+        this.log(basketId, 'ioc_cancelled', `IOC order ${orderId} cancelled - continuing to chase`);
+      } else if (orderStatus === 'filled') {
+        console.log(`✅ IOC limit chaser order filled: ${orderId}`);
+        basket.status = 'active'; // Position opened via limit chaser
+        this.log(basketId, 'ioc_filled', `IOC order ${orderId} filled - position opened`);
+        
+        // Setup stop loss and take profits now that position is open
+        if (basket.stopLoss.enabled) {
+          await this.setupStopLoss(basketId);
+        }
+      }
+      
+      this.saveBaskets();
+    } catch (error) {
+      console.error(`❌ Error checking IOC order status for ${orderId}:`, error);
     }
   }
   
-  private async fetchCandles(_symbol: string, _timeframe: string, _limit: number): Promise<MarketDataCandle[]> {
+  private async fetchCandles(symbol: string, timeframe: string, limit: number): Promise<MarketDataCandle[]> {
     // This would integrate with your market data source
-    // For now, return mock data structure
-    return [];
+    console.log(`📊 Fetching ${limit} ${timeframe} candles for ${symbol}...`);
+    
+    try {
+      // In a real implementation, this would call HyperLiquid's candle API
+      // For testing, we'll create mock candles based on current price
+      const currentPrice = await marketDataService.getPrice(symbol);
+      if (!currentPrice) return [];
+      
+      const now = Date.now();
+      const timeframeMs = this.getTimeframeMs(timeframe);
+      
+      const candles: MarketDataCandle[] = [];
+      for (let i = limit - 1; i >= 0; i--) {
+        const timestamp = now - (i * timeframeMs);
+        const open = currentPrice + (Math.random() - 0.5) * currentPrice * 0.01; // +/- 1%
+        const close = open + (Math.random() - 0.5) * open * 0.005; // +/- 0.5%
+        const high = Math.max(open, close) + Math.random() * Math.abs(open - close);
+        const low = Math.min(open, close) - Math.random() * Math.abs(open - close);
+        
+        candles.push({
+          timestamp,
+          open,
+          high,
+          low,
+          close,
+          volume: Math.random() * 1000000,
+          symbol,
+          timeframe
+        });
+      }
+      
+      return candles;
+    } catch (error) {
+      console.error(`❌ Error fetching candles for ${symbol}:`, error);
+      return [];
+    }
   }
   
-  private async placeOrder(_order: Record<string, unknown>): Promise<{ success: boolean; orderId?: string; message: string }> {
+  private async placeOrder(order: {
+    symbol: string;
+    side: 'buy' | 'sell';
+    type: 'market' | 'limit';
+    quantity: number;
+    price?: number;
+    timeInForce?: 'GTC' | 'IOC' | 'FOK';
+    leverage?: number;
+    reduceOnly?: boolean;
+  }): Promise<{ success: boolean; orderId?: string; fillPrice?: number; message: string }> {
     // This would integrate with your existing order placement system
-    // Using the hyperLiquidSigning and existing trading context
-    return { success: true, orderId: `order_${Date.now()}`, message: 'Order placed successfully' };
+    console.log(`📤 Placing ${order.type} ${order.side} order for ${order.quantity} ${order.symbol}`, {
+      price: order.price,
+      timeInForce: order.timeInForce || 'GTC',
+      leverage: order.leverage,
+      reduceOnly: order.reduceOnly || false
+    });
+    
+    // Mock order placement for testing
+    return { 
+      success: true, 
+      orderId: `order_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`, 
+      fillPrice: order.price || await marketDataService.getPrice(order.symbol) || 0,
+      message: 'Order placed successfully' 
+    };
   }
-  
+
   private async cancelOrder(orderId: string): Promise<boolean> {
     // This would integrate with your existing order cancellation system
-    console.log(`Cancelling order: ${orderId}`);
+    console.log(`🛑 Cancelling order: ${orderId}`);
     return true;
+  }
+
+  private async getOrderStatus(orderId: string): Promise<'pending' | 'filled' | 'cancelled' | 'rejected'> {
+    console.log(`📊 Checking status for order: ${orderId}`);
+    // This would check actual order status
+    // For testing IOC behavior, randomly return filled or cancelled
+    return Math.random() > 0.5 ? 'filled' : 'cancelled';
   }
   
   private getTimeframeMs(timeframe: string): number {
