@@ -43,8 +43,10 @@ const LimitChaser = ({ clicked, setClicked, onParametersChange }: Props) => {
             
             if (currentPrice && (longPriceLimit === 0 || shortPriceLimit === 0)) {
                 const distance = value[0] / 100; // Convert percentage to decimal
-                setLongPriceLimit(currentPrice * (1 + distance));
-                setShortPriceLimit(currentPrice * (1 - distance));
+                // For longs: buy BELOW current price (better entry)
+                // For shorts: sell ABOVE current price (better entry)
+                setLongPriceLimit(currentPrice * (1 - distance));  // Fixed: subtract for longs
+                setShortPriceLimit(currentPrice * (1 + distance)); // Keep: add for shorts
             }
         }
     }, [clicked, connectedAccount?.pair, value, getPrice, longPriceLimit, shortPriceLimit]);
@@ -289,15 +291,14 @@ const LimitChaser = ({ clicked, setClicked, onParametersChange }: Props) => {
                                 </div>
                             </div>
                             
-                            {/* Distance explanation */}
-                            <div className="mt-3 p-3 bg-[#1A1F2E] rounded border border-[#373A45]">
+                            {/* <div className="mt-3 p-3 bg-[#1A1F2E] rounded border border-[#373A45]">
                                 <p className="text-xs text-gray-300">
                                     <span className="text-yellow-400 font-medium">🎯 Distance Explanation:</span><br/>
                                     The limit chaser will place orders at {manualDistance}% away from the current market price.
                                     For longs: sell {manualDistance}% above market. For shorts: buy {manualDistance}% below market.
                                     Orders update every {updateInterval} seconds, maximum {maxChases} times.
                                 </p>
-                            </div>
+                            </div> */}
                         </div>
                     </>
                 )}

@@ -319,7 +319,7 @@ const AccountsWrapper = ({ setAccNum, setModal }: Props) => {
           {/* Merge & delete buttons + merged account selector */}
           <div className="flex flex-col gap-2 items-end col-span-1">
             <div className="flex gap-2">
-              <button onClick={handleAdd} className="h-10 w-[120px] bg-[#16a34a] text-white rounded-[4px] text-sm">
+              <button onClick={handleAdd} data-testid="add-agent-button" className="h-10 w-[120px] bg-[#16a34a] text-white rounded-[4px] text-sm">
                 Create Account
               </button>
               <button onClick={handleOpenModal} className="h-10 w-[100px] bg-[#dc2626] text-white rounded-[4px] text-sm">

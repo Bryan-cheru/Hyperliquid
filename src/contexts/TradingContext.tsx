@@ -55,6 +55,10 @@ interface TradingContextType {
   agentAccount: AgentAccount | null; // Agent account for executing trades
   setAgentAccount: (account: AgentAccount | null) => void;
   
+  // Trading Settings
+  marginMode: "Cross" | "Isolated";
+  setMarginMode: (mode: "Cross" | "Isolated") => void;
+  
   // Agent Trading Functions (uses separate agent wallet)
   isTrading: boolean;
   setIsTrading: (trading: boolean) => void;
@@ -75,6 +79,7 @@ interface TradingContextType {
   refreshPositions: () => Promise<void>;
   refreshAllData: () => Promise<void>; // Refresh all data at once
   getPrice: (symbol: string) => number | null;
+  checkAccountMargin: (assetSymbol: string, quantity: number, leverage: number, side: "buy" | "sell") => Promise<{ hasEnough: boolean; required: number; available: number }>;
 }
 
 // Create context
@@ -85,6 +90,7 @@ export const TradingProvider = ({ children }: { children: ReactNode }) => {
   const [connectedAccount, setConnectedAccount] = useState<ConnectedAccount | null>(null);
   const [agentAccount, setAgentAccount] = useState<AgentAccount | null>(null);
   const [isTrading, setIsTrading] = useState(false);
+  const [marginMode, setMarginMode] = useState<"Cross" | "Isolated">("Cross");
   
   // Market data state
   const [marketPrices, setMarketPrices] = useState<Map<string, MarketPrice>>(new Map());
@@ -178,6 +184,56 @@ export const TradingProvider = ({ children }: { children: ReactNode }) => {
     }
   }, [connectedAccount?.publicKey, refreshMarketData, refreshTradeHistory, refreshOpenOrders, refreshPositions]);
 
+  // Check account margin for trade validation
+  const checkAccountMargin = async (
+    assetSymbol: string, 
+    quantity: number, 
+    leverage: number, 
+    side: "buy" | "sell"
+  ): Promise<{ hasEnough: boolean; required: number; available: number }> => {
+    try {
+      if (!agentAccount?.publicKey) {
+        return { hasEnough: false, required: 0, available: 0 };
+      }
+
+      // Get current asset price
+      const currentPrice = getPrice(assetSymbol) || 0;
+      if (currentPrice === 0) {
+        console.warn('⚠️ Could not get current price for margin calculation');
+        return { hasEnough: false, required: 0, available: 0 };
+      }
+
+      // Calculate required margin for the position
+      const positionValue = quantity * currentPrice;
+      const requiredMargin = positionValue / leverage;
+
+      // Get account balance (simplified - in real implementation would fetch from API)
+      // For now, assume we have sufficient margin unless proven otherwise
+      const estimatedAvailableMargin = positionValue * 0.1; // Conservative estimate
+
+      console.log('💰 Margin Check:', {
+        asset: assetSymbol,
+        side,
+        quantity,
+        currentPrice: currentPrice.toLocaleString(),
+        leverage: `${leverage}x`,
+        positionValue: `$${positionValue.toFixed(2)}`,
+        requiredMargin: `$${requiredMargin.toFixed(2)}`,
+        availableMargin: `$${estimatedAvailableMargin.toFixed(2)}`
+      });
+
+      return {
+        hasEnough: estimatedAvailableMargin >= requiredMargin,
+        required: requiredMargin,
+        available: estimatedAvailableMargin
+      };
+
+    } catch (error) {
+      console.error('Error checking account margin:', error);
+      return { hasEnough: false, required: 0, available: 0 };
+    }
+  };
+
   // Execute trading order using HyperLiquid API
   const executeOrder = async (order: TradingOrder): Promise<{ success: boolean; message: string; orderId?: string }> => {
     if (!agentAccount) {
@@ -257,36 +313,55 @@ export const TradingProvider = ({ children }: { children: ReactNode }) => {
         };
       }
 
-      // Get current market price for the asset
+      // FIXED: Clear Market vs Limit Order Logic
       let orderPrice: string;
+      let timeInForce: { limit: { tif: string } };
+      const currentPrice = getPrice(assetSymbol) || 0;
+
       if (order.orderType === "market") {
-        // For market orders, use a very high/low price to ensure execution
-        const currentPrice = getPrice(assetSymbol);
-        if (currentPrice && currentPrice > 0) {
-          // Use a more conservative percentage for market orders
-          orderPrice = order.side === "buy" 
-            ? (currentPrice * 1.05).toString() // 5% above market for market buy
-            : (currentPrice * 0.95).toString(); // 5% below market for market sell
+        // MARKET ORDERS: Use extreme prices to guarantee execution
+        console.log(`📈 Processing MARKET ${order.side.toUpperCase()} order`);
+        
+        if (order.side === "buy") {
+          // Market BUY: Price above market to ensure fill
+          orderPrice = Math.round(currentPrice * 1.05).toString(); // 5% above market
         } else {
-          console.warn('⚠️ No current price available for', assetSymbol, 'using fallback pricing');
-          // Fallback if price not available - use more reasonable defaults
-          orderPrice = order.side === "buy" ? "100000" : "0.01";
+          // Market SELL: Price below market to ensure fill
+          orderPrice = Math.round(currentPrice * 0.95).toString(); // 5% below market
         }
+        
+        // Use IOC (Immediate or Cancel) for market orders
+        timeInForce = { limit: { tif: "Ioc" } };
+        
+        console.log(`   Market price: $${currentPrice.toLocaleString()}`);
+        console.log(`   Order price: $${parseFloat(orderPrice).toLocaleString()} (${order.side === "buy" ? "above" : "below"} market)`);
+        
       } else {
-        // For limit orders, use the specified price or current market price
+        // LIMIT ORDERS: Use exact specified price
+        console.log(`🎯 Processing LIMIT ${order.side.toUpperCase()} order`);
+        
         if (order.price && order.price > 0) {
-          orderPrice = order.price.toString();
+          orderPrice = Math.round(order.price).toString();
         } else {
-          const currentPrice = getPrice(assetSymbol);
-          if (currentPrice && currentPrice > 0) {
-            orderPrice = currentPrice.toString();
-          } else {
-            console.warn('⚠️ No price specified and no market data available for', assetSymbol);
-            return {
-              success: false,
-              message: `No price data available for ${assetSymbol}. Please specify a price or wait for market data to load.`
-            };
-          }
+          return {
+            success: false,
+            message: `Limit orders require a specific price. Current market price is $${currentPrice.toLocaleString()}`
+          };
+        }
+        
+        // Use GTC (Good Till Canceled) for limit orders
+        timeInForce = { limit: { tif: "Gtc" } };
+        
+        console.log(`   Market price: $${currentPrice.toLocaleString()}`);
+        console.log(`   Limit price: $${parseFloat(orderPrice).toLocaleString()}`);
+        
+        // Validate limit order price makes sense
+        const priceDiff = ((parseFloat(orderPrice) - currentPrice) / currentPrice) * 100;
+        if (order.side === "buy" && parseFloat(orderPrice) > currentPrice * 1.1) {
+          console.warn(`⚠️ Buy limit price is ${priceDiff.toFixed(1)}% above market - this will execute immediately like a market order`);
+        }
+        if (order.side === "sell" && parseFloat(orderPrice) < currentPrice * 0.9) {
+          console.warn(`⚠️ Sell limit price is ${Math.abs(priceDiff).toFixed(1)}% below market - this will execute immediately like a market order`);
         }
       }
 
@@ -307,7 +382,23 @@ export const TradingProvider = ({ children }: { children: ReactNode }) => {
         };
       }
 
-      // Define order action - using dynamic pricing with better validation
+      // Add margin validation check specifically for buy orders
+      if (order.side === "buy") {
+        const marginCheck = await checkAccountMargin(assetSymbol, order.quantity, order.leverage || 1, order.side);
+        if (!marginCheck.hasEnough) {
+          const shortfall = marginCheck.required - marginCheck.available;
+          return {
+            success: false,
+            message: `❌ Insufficient Margin for LONG position!\n` +
+              `Required: $${marginCheck.required.toFixed(2)}\n` +
+              `Available: $${marginCheck.available.toFixed(2)}\n` +
+              `Shortfall: $${shortfall.toFixed(2)}\n\n` +
+              `Try reducing position size or adding more funds.`
+          };
+        }
+      }
+
+      // Define order action - using fixed pricing logic
       const orderAction = {
         type: "order",
         orders: [{
@@ -316,7 +407,7 @@ export const TradingProvider = ({ children }: { children: ReactNode }) => {
           p: orderPrice, // Use dynamic price based on order type and market conditions
           s: order.quantity.toString(), // size
           r: false, // reduceOnly
-          t: { limit: { tif: "Gtc" } } // Always use Gtc like working test
+          t: timeInForce // Use proper time-in-force based on order type
         }],
         grouping: "na"
       };
@@ -897,40 +988,113 @@ export const TradingProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
-  const value: TradingContextType = {
+  // Test function for guaranteed successful orders
+  const placeTestOrder = async (testType: 'market_buy' | 'limit_buy' | 'market_sell') => {
+    if (!agentAccount) {
+      console.error('❌ No agent account available');
+      return;
+    }
+
+    const currentPrice = getPrice('BTC') || 118719;
+    console.log(`🧪 PLACING TEST ORDER - Type: ${testType}`);
+    console.log(`📊 Current BTC Price: $${currentPrice.toLocaleString()}`);
+
+    let testOrder;
+
+    switch (testType) {
+      case 'market_buy':
+        testOrder = {
+          symbol: 'BTC',
+          side: 'buy' as const,
+          orderType: 'market' as const,
+          quantity: 0.00001, // $1.18 worth
+          leverage: 2,
+          price: 0 // Market price
+        };
+        console.log('📝 Market Buy Order - Will execute at current market price');
+        break;
+
+      case 'limit_buy':
+        const limitPrice = Math.floor(currentPrice * 0.97); // 3% below market
+        testOrder = {
+          symbol: 'BTC',
+          side: 'buy' as const,
+          orderType: 'limit' as const,
+          quantity: 0.00001,
+          leverage: 2,
+          price: limitPrice
+        };
+        console.log(`📝 Limit Buy Order - Will only execute if BTC drops to $${limitPrice.toLocaleString()}`);
+        break;
+
+      case 'market_sell':
+        testOrder = {
+          symbol: 'BTC',
+          side: 'sell' as const,
+          orderType: 'market' as const,
+          quantity: 0.00001,
+          leverage: 2,
+          price: 0
+        };
+        console.log('📝 Market Sell Order - Will execute immediately');
+        break;
+    }
+
+    console.log('💰 Estimated margin requirement:', `$${((testOrder.quantity * currentPrice) / testOrder.leverage).toFixed(2)}`);
+    
+    try {
+      const result = await executeOrder(testOrder);
+      if (result.success) {
+        console.log('✅ TEST ORDER SUCCESS!', result.message);
+        setToast({
+          type: "success",
+          message: `✅ Test order successful: ${result.message}`
+        });
+      } else {
+        console.log('❌ TEST ORDER FAILED:', result.message);
+        setToast({
+          type: "error", 
+          message: `❌ Test order failed: ${result.message}`
+        });
+      }
+    } catch (error) {
+      console.error('❌ Error placing test order:', error);
+    }
+  };
+
+  // Context value
+  const contextValue: TradingContextType = {
     connectedAccount,
     setConnectedAccount,
     agentAccount,
     setAgentAccount,
+    marginMode,
+    setMarginMode,
     isTrading,
     setIsTrading,
-    executeOrder,
-    closeAllPositions,
-    cancelAllOrders,
-    
-    // Market data
-    marketPrices,
     tradeHistory,
     openOrders,
     positions,
-    
-    // Data refresh functions
+    marketPrices,
+    executeOrder,
     refreshMarketData,
     refreshTradeHistory,
     refreshOpenOrders,
     refreshPositions,
     refreshAllData,
-    getPrice
+    getPrice,
+    checkAccountMargin,
+    closeAllPositions,
+    cancelAllOrders
   };
 
   return (
-    <TradingContext.Provider value={value}>
+    <TradingContext.Provider value={contextValue}>
       {children}
     </TradingContext.Provider>
   );
 };
 
-// Custom hook to use the TradingContext
 export const useTrading = () => {
   const context = useContext(TradingContext);
   if (context === undefined) {

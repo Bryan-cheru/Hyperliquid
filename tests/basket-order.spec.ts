@@ -217,7 +217,9 @@ test.describe('Basket Order End-to-End Tests', () => {
   test.beforeEach(async ({ page }) => {
     helper = new BasketOrderTestHelper(page);
     await page.goto('/');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
+    // Wait for app to load by checking if a key element is visible
+    await page.waitForSelector('[data-testid="accounts-tab"]', { timeout: 10000 });
   });
 
   test('Complete Basket Order Flow with Trigger Stop Loss and Limit Chaser', async () => {
