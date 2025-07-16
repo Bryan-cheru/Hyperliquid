@@ -219,21 +219,42 @@ export const TradingProvider = ({ children }: { children: ReactNode }) => {
       const assetSymbol = order.symbol.replace('/USDT', '').replace('/USDC', '').replace('-USD', '');
       
       // Fetch asset metadata to get the correct asset index
-      const metaResponse = await fetch('https://api.hyperliquid.xyz/info', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ type: "meta" })
-      });
+      let metaData;
+      let assetIndex = -1;
       
-      if (!metaResponse.ok) {
-        throw new Error('Failed to fetch asset metadata');
-      }
-      
-      const metaData = await metaResponse.json();
-      const assetIndex = metaData.universe.findIndex((asset: { name: string }) => asset.name === assetSymbol);
-      
-      if (assetIndex === -1) {
-        throw new Error(`Asset ${assetSymbol} not found in HyperLiquid universe`);
+      try {
+        console.log('🔍 Fetching asset metadata for:', assetSymbol);
+        const metaResponse = await fetch('https://api.hyperliquid.xyz/info', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ type: "meta" })
+        });
+        
+        if (!metaResponse.ok) {
+          throw new Error(`Failed to fetch asset metadata: ${metaResponse.status}`);
+        }
+        
+        metaData = await metaResponse.json();
+        
+        if (!metaData.universe || !Array.isArray(metaData.universe)) {
+          throw new Error('Invalid metadata format: missing universe array');
+        }
+        
+        assetIndex = metaData.universe.findIndex((asset: { name: string }) => asset.name === assetSymbol);
+        
+        if (assetIndex === -1) {
+          console.error('❌ Available assets:', metaData.universe.map((a: { name: string }) => a.name));
+          throw new Error(`Asset ${assetSymbol} not found in HyperLiquid universe`);
+        }
+        
+        console.log('✅ Found asset', assetSymbol, 'at index', assetIndex);
+        
+      } catch (error) {
+        console.error('❌ Error fetching asset metadata:', error);
+        return {
+          success: false,
+          message: `Failed to fetch asset information for ${assetSymbol}: ${error instanceof Error ? error.message : 'Unknown error'}`
+        };
       }
 
       // Get current market price for the asset
@@ -241,13 +262,15 @@ export const TradingProvider = ({ children }: { children: ReactNode }) => {
       if (order.orderType === "market") {
         // For market orders, use a very high/low price to ensure execution
         const currentPrice = getPrice(assetSymbol);
-        if (currentPrice) {
+        if (currentPrice && currentPrice > 0) {
+          // Use a more conservative percentage for market orders
           orderPrice = order.side === "buy" 
-            ? (currentPrice * 1.1).toString() // 10% above market for market buy
-            : (currentPrice * 0.9).toString(); // 10% below market for market sell
+            ? (currentPrice * 1.05).toString() // 5% above market for market buy
+            : (currentPrice * 0.95).toString(); // 5% below market for market sell
         } else {
-          // Fallback if price not available
-          orderPrice = order.side === "buy" ? "999999" : "1";
+          console.warn('⚠️ No current price available for', assetSymbol, 'using fallback pricing');
+          // Fallback if price not available - use more reasonable defaults
+          orderPrice = order.side === "buy" ? "100000" : "0.01";
         }
       } else {
         // For limit orders, use the specified price or current market price
@@ -255,11 +278,36 @@ export const TradingProvider = ({ children }: { children: ReactNode }) => {
           orderPrice = order.price.toString();
         } else {
           const currentPrice = getPrice(assetSymbol);
-          orderPrice = currentPrice ? currentPrice.toString() : "95000"; // Fallback only if no market data
+          if (currentPrice && currentPrice > 0) {
+            orderPrice = currentPrice.toString();
+          } else {
+            console.warn('⚠️ No price specified and no market data available for', assetSymbol);
+            return {
+              success: false,
+              message: `No price data available for ${assetSymbol}. Please specify a price or wait for market data to load.`
+            };
+          }
         }
       }
 
-      // Define order action - using dynamic pricing
+      // Validate that the price is reasonable
+      const priceValue = parseFloat(orderPrice);
+      if (isNaN(priceValue) || priceValue <= 0) {
+        return {
+          success: false,
+          message: `Invalid price calculated: ${orderPrice}. Please check the order parameters.`
+        };
+      }
+
+      // Validate quantity
+      if (isNaN(order.quantity) || order.quantity <= 0) {
+        return {
+          success: false,
+          message: `Invalid quantity: ${order.quantity}. Quantity must be a positive number.`
+        };
+      }
+
+      // Define order action - using dynamic pricing with better validation
       const orderAction = {
         type: "order",
         orders: [{
@@ -273,25 +321,45 @@ export const TradingProvider = ({ children }: { children: ReactNode }) => {
         grouping: "na"
       };
 
+      console.log('📋 Order Action Structure:', JSON.stringify(orderAction, null, 2));
+
       // Prepare HyperLiquid order payload for direct account trading
       const nonce = Date.now();
+      
+      console.log('🔐 Signing order with nonce:', nonce);
+      
+      let signature;
+      try {
+        signature = await signOrderAction(orderAction, nonce, agentAccount.privateKey, undefined);
+        console.log('✅ Order signature generated successfully');
+      } catch (signError) {
+        console.error('❌ Error signing order:', signError);
+        return {
+          success: false,
+          message: `Failed to sign order: ${signError instanceof Error ? signError.message : 'Unknown signing error'}`
+        };
+      }
       
       // Build payload exactly like working test file
       const orderPayload = {
         action: orderAction,
         nonce,
-        signature: await signOrderAction(orderAction, nonce, agentAccount.privateKey, undefined),
+        signature,
         vaultAddress: null // Explicitly set to null for direct account trading (matches working test)
       };
 
       // Validate order payload before sending
-      const validation = validateOrderPayload(orderPayload as any);
+      const validation = validateOrderPayload(orderPayload as { action: any; nonce: number; signature: any; vaultAddress: null });
       if (!validation.valid) {
         console.warn('⚠️ Order validation issues:', validation.errors);
+        return {
+          success: false,
+          message: `Order validation failed: ${validation.errors.join(', ')}`
+        };
       }
       
       // Log detailed order information
-      logOrderDetails(orderPayload as any);
+      logOrderDetails(orderPayload as { action: any; nonce: number; signature: any; vaultAddress: null });
       
       // Using Python-compatible msgpack and EIP-712 signing for HyperLiquid integration
       console.log('✅ Order signed with Python-compatible msgpack and EIP-712 signature');
@@ -317,8 +385,12 @@ export const TradingProvider = ({ children }: { children: ReactNode }) => {
         let result;
         try {
           result = JSON.parse(responseText);
-        } catch {
-          throw new Error(`Invalid JSON response: ${responseText}`);
+        } catch (parseError) {
+          console.error('❌ Failed to parse JSON response:', parseError);
+          return {
+            success: false,
+            message: `Invalid response from HyperLiquid API. The service may be temporarily unavailable. Raw response: ${responseText.substring(0, 200)}`
+          };
         }
 
         // Check for HTTP errors
@@ -327,9 +399,10 @@ export const TradingProvider = ({ children }: { children: ReactNode }) => {
           
           // Handle specific HyperLiquid error messages
           if (response.status === 400) {
+            const errorMessage = result?.error || result?.message || 'Invalid order parameters';
             return {
               success: false,
-              message: `Bad Request: ${result.error || result.message || 'Invalid order parameters'}`
+              message: `Bad Request: ${errorMessage}`
             };
           }
           
@@ -339,8 +412,26 @@ export const TradingProvider = ({ children }: { children: ReactNode }) => {
               message: 'Unauthorized: Invalid signature or API key'
             };
           }
+
+          if (response.status === 403) {
+            return {
+              success: false,
+              message: 'Forbidden: Account not authorized for trading'
+            };
+          }
+
+          if (response.status >= 500) {
+            return {
+              success: false,
+              message: 'HyperLiquid server error. Please try again later.'
+            };
+          }
           
-          throw new Error(`HTTP ${response.status}: ${result.error || result.message || responseText}`);
+          const errorMessage = result?.error || result?.message || responseText;
+          return {
+            success: false,
+            message: `HTTP ${response.status}: ${errorMessage}`
+          };
         }
 
         // Process successful response according to HyperLiquid docs
