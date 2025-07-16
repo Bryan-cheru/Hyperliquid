@@ -78,6 +78,7 @@ const AccountsWrapper = ({ setAccNum, setModal }: Props) => {
                   leverage: "20x Leverage", // Could be fetched from account settings
                   balance: accountData.balance,
                   pnl: accountData.pnl,
+                  openOrdersCount: accountData.openOrdersCount,
                 }
               : acc
           ));

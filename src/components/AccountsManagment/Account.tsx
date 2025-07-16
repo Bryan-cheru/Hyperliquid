@@ -35,23 +35,109 @@ const Account = ({ acc, id, getId, getName }: AccountProps) => {
   const [connectionStatus, setConnectionStatus] = useState<"idle" | "connected" | "error">("idle"); // Connection state
   const [errorMessage, setErrorMessage] = useState<string>(""); // Error message
   
+  // Dynamic trading pairs state
+  const [availablePairs, setAvailablePairs] = useState<string[]>([]);
+  const [masterPair, setMasterPair] = useState<string>(""); // Selected master pair
+  const [subscriberPair, setSubscriberPair] = useState<string>(""); // Selected subscriber pair
+  const [loadingPairs, setLoadingPairs] = useState<boolean>(false);
+  
   // Trading context to connect agent account for trading
   const { setAgentAccount } = useTrading();
   
   const cardRef = useRef<HTMLDivElement | null>(null); // Ref to detect outside clicks
 
+  // Function to fetch available trading pairs from HyperLiquid
+  const fetchTradingPairs = async () => {
+    setLoadingPairs(true);
+    try {
+      console.log('🔍 Fetching available trading pairs from HyperLiquid...');
+      
+      const response = await fetch('https://api.hyperliquid.xyz/info', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          type: "meta"
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to fetch trading pairs: ${response.status}`);
+      }
+
+      const data = await response.json();
+      
+      // Extract asset names from universe and format as trading pairs
+      const pairs: string[] = [];
+      if (data.universe && Array.isArray(data.universe)) {
+        data.universe.forEach((asset: { name?: string }) => {
+          if (asset.name) {
+            pairs.push(`${asset.name}-USD`);
+          }
+        });
+      }
+      
+      // Add some default pairs if API doesn't return any
+      if (pairs.length === 0) {
+        pairs.push('BTC-USD', 'ETH-USD', 'SOL-USD', 'HYPE-USD', 'ARB-USD');
+      }
+      
+      setAvailablePairs(pairs);
+      
+      // Set default selections to first two pairs
+      if (pairs.length >= 2) {
+        setMasterPair(pairs[0]);
+        setSubscriberPair(pairs[1]);
+      }
+      
+      console.log('✅ Successfully loaded', pairs.length, 'trading pairs');
+    } catch (error) {
+      console.error('❌ Error fetching trading pairs:', error);
+      
+      // Fallback to default pairs on error
+      const defaultPairs = ['BTC-USD', 'ETH-USD', 'SOL-USD', 'HYPE-USD', 'ARB-USD'];
+      setAvailablePairs(defaultPairs);
+      setMasterPair(defaultPairs[0]);
+      setSubscriberPair(defaultPairs[1]);
+    } finally {
+      setLoadingPairs(false);
+    }
+  };
+
+  // Load trading pairs when component mounts
+  useEffect(() => {
+    fetchTradingPairs();
+  }, []);
+
+  // Log pair selections for debugging
+  useEffect(() => {
+    if (masterChecked && masterPair) {
+      console.log(`📊 Master pair selected for Account ${acc.num}:`, masterPair);
+    }
+  }, [masterPair, masterChecked, acc.num]);
+
+  useEffect(() => {
+    if (subscriberChecked && subscriberPair) {
+      console.log(`📊 Subscriber pair selected for Account ${acc.num}:`, subscriberPair);
+    }
+  }, [subscriberPair, subscriberChecked, acc.num]);
+
   // Effect to close the card dropdown when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (cardRef.current && !cardRef.current.contains(event.target as Node)) {
-        setClicked(false);
+        // Don't close if the account is connected (maintain red border)
+        if (connectionStatus !== "connected") {
+          setClicked(false);
+        }
       }
     };
     document.addEventListener("mousedown", handleClickOutside);
     return () => {
       document.removeEventListener("mousedown", handleClickOutside);
     };
-  }, []);
+  }, [connectionStatus]); // Add connectionStatus as dependency
 
   // Handles click on the card; expands it and notifies parent of selected ID and Name
   const handleCardClick = () => {
@@ -131,6 +217,7 @@ const Account = ({ acc, id, getId, getName }: AccountProps) => {
         setConnectionStatus("connected");
         setIsConnecting(false);
         setErrorMessage("");
+        setClicked(true); // Keep card expanded when connected
         
         console.log('Agent wallet connected successfully with Python-compatible signing');
         console.log('🔐 Signature verification should now work correctly with HyperLiquid');
@@ -148,6 +235,14 @@ const Account = ({ acc, id, getId, getName }: AccountProps) => {
         setAgentAccount(agentAccountData);
         console.log('Agent account connected for trading:', agentAccountData.accountName);
         console.log('Agent account ready for trade execution');
+        
+        // Log selected trading pairs if any
+        if (masterChecked && masterPair) {
+          console.log('Master pair selected:', masterPair);
+        }
+        if (subscriberChecked && subscriberPair) {
+          console.log('Subscriber pair selected:', subscriberPair);
+        }
         
       } else {
         throw new Error(`API request failed. Status: ${accountResponse.status}`);
@@ -167,6 +262,7 @@ const Account = ({ acc, id, getId, getName }: AccountProps) => {
       ref={cardRef}
       onClick={handleCardClick}
       className={`self-start flex flex-col w-[460px] max-w-full bg-[#23272E] p-5 transition-all duration-300 relative rounded-xl ${
+        connectionStatus === "connected" ? "border-2 border-red-500" : 
         clicked ? "border border-[#F0B90B]" : ""
       } ${acc.selected ? "ring-2 ring-green-400" : ""}`}
       initial={{ opacity: 0, y: -10 }}
@@ -176,9 +272,14 @@ const Account = ({ acc, id, getId, getName }: AccountProps) => {
     >
       {/* Header Section */}
       <div className="flex justify-between items-center space-y-6">
-        <h1 className="title text-sm">
-          {acc.title} {acc.num}
-        </h1>
+        <div className="flex items-center gap-2">
+          <h1 className="title text-sm">
+            {acc.title} {acc.num}
+          </h1>
+          {connectionStatus === "connected" && (
+            <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse"></div>
+          )}
+        </div>
 
         {/* Selection checkbox + Status */}
         <div className="flex gap-3 items-center justify-end">
@@ -192,10 +293,12 @@ const Account = ({ acc, id, getId, getName }: AccountProps) => {
                 e.stopPropagation();
                 getId(id);
 
-                // Reset internal toggles if unchecking
+                // Reset internal toggles and pair selections if unchecking
                 if (!e.target.checked) {
                   setMasterChecked(false);
                   setSubscriberChecked(false);
+                  setMasterPair("");
+                  setSubscriberPair("");
                 }
               }}
             />
@@ -216,12 +319,14 @@ const Account = ({ acc, id, getId, getName }: AccountProps) => {
           {/* Status tag */}
           <div
             className={`text-xs font-medium px-2 py-[2px] rounded ${
-              acc.status === "INACTIVE"
+              connectionStatus === "connected" 
+                ? "text-[#00FF4B] bg-[rgba(0,255,75,0.10)]"
+                : acc.status === "INACTIVE" || acc.status === "Not Connected"
                 ? "text-[#FF3838] bg-[rgba(255,0,0,0.10)]"
                 : "text-[#00FF4B]"
             }`}
           >
-            {acc.status}
+            {connectionStatus === "connected" ? "Connected" : acc.status}
           </div>
         </div>
       </div>
@@ -322,9 +427,14 @@ const Account = ({ acc, id, getId, getName }: AccountProps) => {
               <span className="relative flex items-center">
                 <input
                   type="checkbox"
-                  disabled={!clicked || !acc.selected}
+                  disabled={!clicked} // Only require card to be expanded
                   checked={masterChecked}
-                  onChange={e => setMasterChecked(e.target.checked)}
+                  onChange={e => {
+                    setMasterChecked(e.target.checked);
+                    if (!e.target.checked) {
+                      setMasterPair(""); // Reset selection when unchecked
+                    }
+                  }}
                   onClick={e => e.stopPropagation()}
                   className="cursor-pointer peer appearance-none h-[16px] w-[16px] shrink-0 rounded-xs border-2 border-[#787b7f] bg-transparent checked:bg-blue-500 checked:border-blue-500 disabled:opacity-50"
                 />
@@ -348,9 +458,14 @@ const Account = ({ acc, id, getId, getName }: AccountProps) => {
               <span className="relative flex items-center">
                 <input
                   type="checkbox"
-                  disabled={!clicked || !acc.selected}
+                  disabled={!clicked} // Only require card to be expanded
                   checked={subscriberChecked}
-                  onChange={e => setSubscriberChecked(e.target.checked)}
+                  onChange={e => {
+                    setSubscriberChecked(e.target.checked);
+                    if (!e.target.checked) {
+                      setSubscriberPair(""); // Reset selection when unchecked
+                    }
+                  }}
                   onClick={e => e.stopPropagation()}
                   className="cursor-pointer peer appearance-none h-[16px] w-[16px] shrink-0 rounded-xs border-2 border-[#787b7f] bg-transparent checked:bg-blue-500 checked:border-blue-500 disabled:opacity-50"
                 />
@@ -371,21 +486,52 @@ const Account = ({ acc, id, getId, getName }: AccountProps) => {
             </label>
           </div>
 
+          {/* Show selected pairs */}
+          {(masterChecked && masterPair) || (subscriberChecked && subscriberPair) ? (
+            <div className="mt-2 p-2 bg-[#1a1b24] rounded-md border border-gray-700">
+              <div className="text-xs text-gray-300 mb-1">Selected Trading Pairs:</div>
+              {masterChecked && masterPair && (
+                <div className="text-xs text-green-400">Master: {masterPair}</div>
+              )}
+              {subscriberChecked && subscriberPair && (
+                <div className="text-xs text-blue-400">Subscriber: {subscriberPair}</div>
+              )}
+            </div>
+          ) : null}
+
           {/* Dropdowns for selecting trading pairs */}
           <div className="flex justify-between gap-4">
-            <select className="w-full bg-[#1f2228] border border-gray-600 px-3 py-2 rounded-md text-xs"   onClick={e => e.stopPropagation()}>
-              <option>BTC-USD</option>
-              <option>ETH-USD</option>
-              <option>SOL-USD</option>
-              <option>HYPE-USD</option>
-              <option>ARB-USD</option>
+            <select 
+              className="w-full bg-[#1f2228] border border-gray-600 px-3 py-2 rounded-md text-xs"   
+              onClick={e => e.stopPropagation()}
+              value={masterPair}
+              onChange={e => setMasterPair(e.target.value)}
+              disabled={!masterChecked || loadingPairs || !clicked}
+            >
+              <option value="">
+                {loadingPairs ? "Loading pairs..." : "Select Master Pair"}
+              </option>
+              {availablePairs.map((pair) => (
+                <option key={pair} value={pair}>
+                  {pair}
+                </option>
+              ))}
             </select>
-            <select className="w-full bg-[#1f2228] border border-gray-600 px-3 py-2 rounded-md text-xs"  onClick={e => e.stopPropagation()}>
-              <option>BTC-USD</option>
-              <option>ETH-USD</option>
-              <option>SOL-USD</option>
-              <option>HYPE-USD</option>
-              <option>ARB-USD</option>
+            <select 
+              className="w-full bg-[#1f2228] border border-gray-600 px-3 py-2 rounded-md text-xs"  
+              onClick={e => e.stopPropagation()}
+              value={subscriberPair}
+              onChange={e => setSubscriberPair(e.target.value)}
+              disabled={!subscriberChecked || loadingPairs || !clicked}
+            >
+              <option value="">
+                {loadingPairs ? "Loading pairs..." : "Select Subscriber Pair"}
+              </option>
+              {availablePairs.map((pair) => (
+                <option key={pair} value={pair}>
+                  {pair}
+                </option>
+              ))}
             </select>
           </div>
         </div>
