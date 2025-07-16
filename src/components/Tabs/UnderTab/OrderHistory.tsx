@@ -35,7 +35,15 @@ const OrderHistory = () => {
                     </div>
 
                     {/* Other column headers */}
-                    <div className="flex items-center text-[10px] ml-2">Type</div>
+                    <div className="flex items-center text-[10px] ml-2 group relative">
+                        Type
+                        <svg className="ml-1 w-3 h-3 text-gray-400 cursor-help" fill="currentColor" viewBox="0 0 20 20">
+                            <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-3a1 1 0 00-.867.5 1 1 0 11-1.731-1A3 3 0 0113 8a3.001 3.001 0 01-2 2.83V11a1 1 0 11-2 0v-1a1 1 0 011-1 1 1 0 100-2zm0 8a1 1 0 100-2 1 1 0 000 2z" clipRule="evenodd" />
+                        </svg>
+                        <div className="absolute bottom-full left-0 mb-2 w-64 p-2 bg-gray-800 text-white text-xs rounded shadow-lg opacity-0 group-hover:opacity-100 transition-opacity z-10 pointer-events-none">
+                            UI shows Market/Limit based on order behavior. Hyperliquid backend may show all orders as "Limit" due to IoC implementation.
+                        </div>
+                    </div>
                     <div className="flex items-center text-[10px]">Coin</div>
                     <div className="flex items-center text-[10px]">Direction</div>
                     <div className="flex items-center text-[10px]">Size</div>
