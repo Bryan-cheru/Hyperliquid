@@ -27,7 +27,7 @@ const TradingControls = ({ setType, type }: Props) => {
             <button onClick={() => setType("Limit")} className={`relative cursor-pointer py-1.5 px-3 rounded-[6px] font-bold ${type === "Limit" ? "bg-[#F0B90B] text-black" : "bg-[#24293A] text-white"}`} >Limit</button>
           </div>
         </div>
-        {type === "Limit" ? <Limit /> : <Market />}
+        {type === "Limit" ? <Limit /> : <Market selectedOrderType={type as "Market" | "Limit"} />}
       </div>
     </section>
   )

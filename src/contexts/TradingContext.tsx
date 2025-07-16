@@ -98,6 +98,9 @@ export const TradingProvider = ({ children }: { children: ReactNode }) => {
   const [openOrders, setOpenOrders] = useState<OpenOrder[]>([]);
   const [positions, setPositions] = useState<Position[]>([]);
 
+  // Order type registry to track market vs limit orders
+  const [orderTypeRegistry, setOrderTypeRegistry] = useState<Map<string, 'market' | 'limit'>>(new Map());
+
   // Market data functions
   const refreshMarketData = useCallback(async () => {
     try {
@@ -112,11 +115,28 @@ export const TradingProvider = ({ children }: { children: ReactNode }) => {
     if (!connectedAccount?.publicKey) return; // Use master account for viewing data
     try {
       const history = await marketDataService.fetchTradeHistory(connectedAccount.publicKey, 200); // Fetch up to 200 trades like Hyperliquid
-      setTradeHistory(history);
+      
+      console.log('🔍 Raw trade history from API:', history);
+      console.log('🔍 Current order type registry:', Array.from(orderTypeRegistry.entries()));
+      
+      // Enhance trade history with locally tracked order types
+      const enhancedHistory = history.map(trade => {
+        // Check if we have locally tracked order type for this order
+        const localOrderType = orderTypeRegistry.get(trade.orderId);
+        if (localOrderType) {
+          console.log('🔄 Overriding order type for', trade.orderId, 'from', trade.type, 'to', localOrderType);
+          return { ...trade, type: localOrderType };
+        }
+        console.log('🔍 No local override for order', trade.orderId, '- using inferred type:', trade.type);
+        return trade;
+      });
+      
+      console.log('🔍 Enhanced trade history:', enhancedHistory);
+      setTradeHistory(enhancedHistory);
     } catch (error) {
       console.error('Error refreshing trade history:', error);
     }
-  }, [connectedAccount?.publicKey]);
+  }, [connectedAccount?.publicKey, orderTypeRegistry]);
 
   const refreshOpenOrders = useCallback(async () => {
     if (!connectedAccount?.publicKey) return; // Use master account for viewing data
@@ -547,6 +567,40 @@ export const TradingProvider = ({ children }: { children: ReactNode }) => {
           }
           
           console.log('✅ Order successful:', { orderId, orderStatus });
+          
+          // Register the order type for future reference with multiple ID variations
+          setOrderTypeRegistry(prev => {
+            const newRegistry = new Map(prev);
+            
+            // Register with the primary order ID
+            newRegistry.set(orderId, order.orderType);
+            console.log('📝 Registered order type:', { orderId, type: order.orderType });
+            
+            // Also register with additional ID formats that might be used in trade history
+            if (orderData?.statuses?.[0]) {
+              const status = orderData.statuses[0];
+              
+              // Register with resting order ID if available
+              if (status.resting?.oid && status.resting.oid.toString() !== orderId) {
+                newRegistry.set(status.resting.oid.toString(), order.orderType);
+                console.log('📝 Also registered with resting OID:', status.resting.oid.toString());
+              }
+              
+              // Register with filled order ID if available
+              if (status.filled?.oid && status.filled.oid.toString() !== orderId) {
+                newRegistry.set(status.filled.oid.toString(), order.orderType);
+                console.log('📝 Also registered with filled OID:', status.filled.oid.toString());
+              }
+              
+              // Register with transaction ID if available
+              if (status.filled?.tid) {
+                newRegistry.set(status.filled.tid.toString(), order.orderType);
+                console.log('📝 Also registered with TID:', status.filled.tid.toString());
+              }
+            }
+            
+            return newRegistry;
+          });
           
           // Refresh all relevant data after successful trade
           console.log('🔄 Refreshing account data after successful trade...');

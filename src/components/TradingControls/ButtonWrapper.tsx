@@ -14,6 +14,8 @@ const ButtonWrapper = ({ tradingParams }: ButtonWrapperProps) => {
   // Debug logging
   console.log('ButtonWrapper - agentAccount:', agentAccount);
   console.log('ButtonWrapper - connectedAccount:', connectedAccount);
+  console.log('🔍 ButtonWrapper - tradingParams received:', tradingParams);
+  console.log('🔍 ButtonWrapper - orderType detection:', tradingParams?.orderType === "Market" ? "MARKET" : "LIMIT");
 
   // Handle Long/Short trading using real UI parameters
   const handleTrade = async (side: "buy" | "sell") => {

@@ -5,6 +5,7 @@ import LimitChaser from "../LimitChaser";
 import { LimitOrder } from "../LimitOrder";
 import Profits from "../Profits";
 import Leverage from "../Leverage/Leverage";
+import { type TradingParams } from "./Market";
 
 const Limit = () => {
 
@@ -12,8 +13,33 @@ const Limit = () => {
     const [value, setValue] = useState<number>(0);
     const [value2, setValue2] = useState<number>(0);
     const [clicked, setClicked] = useState<boolean>(false);
-
     const [clickedSplit, setClickedSplit] = useState<boolean>(false);
+    const [limitPrice, setLimitPrice] = useState<number>(97000); // Initialize with default BTC price
+
+    // Handle price change from LimitOrder component
+    const handlePriceChange = (price: number) => {
+        console.log('🔍 Limit component - received price change:', price);
+        setLimitPrice(price);
+    };
+
+    // Create trading parameters to pass to ButtonWrapper
+    const tradingParams: TradingParams = {
+        leverage: value2,
+        positionSize: value,
+        stopLoss: 0, // This would come from the stop loss slider
+        orderType: "Limit",
+        triggerPrice: limitPrice, // This is the key - pass the limit price
+        stopPrice: undefined,
+        orderSplit: clickedSplit,
+        minPrice: undefined,
+        maxPrice: undefined,
+        splitCount: leverage,
+        scaleType: 'Lower'
+    };
+
+    // Debug logging
+    console.log('🔍 Limit Component - Trading Params:', tradingParams);
+    console.log('🔍 Limit Component - limitPrice:', limitPrice);
 
   return (
     <>
@@ -49,7 +75,7 @@ const Limit = () => {
                   </div>
               </div>
               <Profits />
-              <LimitOrder />
+              <LimitOrder onPriceChange={handlePriceChange} />
               <div className="flex gap-3 items-center -mt-3 -mb-3">
                   <label className="relative cursor-pointer flex">
                       <input
@@ -136,7 +162,7 @@ const Limit = () => {
                   </div>
               </div>
               <LimitChaser setClicked={setClicked} clicked={clicked} />
-              <ButtonWrapper />
+              <ButtonWrapper tradingParams={tradingParams} />
           </div>
     </>
   )

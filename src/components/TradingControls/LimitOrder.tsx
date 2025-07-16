@@ -1,18 +1,77 @@
 import * as Slider from "@radix-ui/react-slider"
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useTrading } from "../../contexts/TradingContext";
 import { type Type } from "./Market&Limit/Market";
 
-export const LimitOrder = () => {
+interface LimitOrderProps {
+  onPriceChange?: (price: number) => void;
+}
 
+export const LimitOrder = ({ onPriceChange }: LimitOrderProps) => {
+    const { connectedAccount, getPrice } = useTrading();
     const [leverage, setLeverage] = useState<number[]>([0]);
     const [value, setValue] = useState<number[]>([0]);
     const [type, setType] = useState<Type>("Limit");
+    const [limitPrice, setLimitPrice] = useState<string>("");
+
+    // Auto-fill with current market price when component mounts
+    useEffect(() => {
+        if (connectedAccount?.pair) {
+            const symbol = connectedAccount.pair.replace('/USDT', '').replace('/USDC', '');
+            const currentPrice = getPrice(symbol);
+            console.log('🔍 LimitOrder auto-fill - symbol:', symbol, 'currentPrice:', currentPrice);
+            
+            if (currentPrice && (limitPrice === "" || limitPrice === "0")) {
+                const priceString = currentPrice.toString();
+                setLimitPrice(priceString);
+                console.log('🔍 LimitOrder auto-fill - setting price:', priceString);
+                
+                if (onPriceChange) {
+                    onPriceChange(currentPrice);
+                    console.log('🔍 LimitOrder auto-fill - called onPriceChange with:', currentPrice);
+                }
+            }
+        }
+    }, [connectedAccount?.pair, getPrice, limitPrice, onPriceChange]);
+
+    // Also trigger when getPrice updates (market data refresh)
+    useEffect(() => {
+        if (connectedAccount?.pair && (limitPrice === "" || limitPrice === "0")) {
+            const symbol = connectedAccount.pair.replace('/USDT', '').replace('/USDC', '');
+            const currentPrice = getPrice(symbol);
+            if (currentPrice) {
+                const priceString = currentPrice.toString();
+                setLimitPrice(priceString);
+                
+                if (onPriceChange) {
+                    onPriceChange(currentPrice);
+                }
+            }
+        }
+    }, [getPrice, connectedAccount?.pair, limitPrice, onPriceChange]);
+
+    const handlePriceChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const newPrice = e.target.value;
+        setLimitPrice(newPrice);
+        console.log('🔍 LimitOrder handlePriceChange - newPrice:', newPrice);
+        
+        if (onPriceChange && newPrice && !isNaN(Number(newPrice)) && Number(newPrice) > 0) {
+            onPriceChange(Number(newPrice));
+            console.log('🔍 LimitOrder handlePriceChange - called onPriceChange with:', Number(newPrice));
+        }
+    };
 
   return (
     <>
           <div className="flex flex-col gap-1.5">
               <h1 className="text-white text-xl font-bold">Limit order</h1>
-              <input type="number" placeholder="Enter price" className={`orderInput`} />
+              <input 
+                  type="number" 
+                  placeholder="Enter price" 
+                  value={limitPrice}
+                  onChange={handlePriceChange}
+                  className={`orderInput`} 
+              />
           </div>
           <div className="flex flex-col">
               <p className="text-[rgba(255,255,255,0.70)] text-xs">Position Size: <span className="text-white">%{value[0] ?? 0}</span></p>

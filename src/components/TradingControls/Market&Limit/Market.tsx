@@ -61,6 +61,11 @@ const Market = ({ selectedOrderType = "Market" }: MarketProps) => {
       scaleType: value4 === 0 ? "Lower" : value4 === 1 ? "Mid point" : "Upper"
     };
 
+    // Debug logging to trace order type
+    console.log('🔍 Market Component - selectedOrderType:', selectedOrderType);
+    console.log('🔍 Market Component - orderType:', orderType);
+    console.log('🔍 Market Component - tradingParams:', tradingParams);
+
     return (
         <div className="flex flex-col gap-8">
             <div className="flex flex-col gap-4">

@@ -19,6 +19,7 @@ export interface TradeHistoryItem {
   value: number;
   status: 'filled' | 'partial' | 'cancelled';
   orderId: string;
+  type: 'market' | 'limit'; // Add order type tracking
 }
 
 export interface OpenOrder {
@@ -168,17 +169,41 @@ class MarketDataService {
       }
       
       return allFills
-        .map((fill: any, index: number) => ({
-          id: `${fill.oid || fill.tid || index}`,
-          timestamp: fill.time || Date.now(),
-          symbol: fill.coin || 'Unknown',
-          side: fill.side === 'A' ? 'buy' : 'sell',
-          quantity: parseFloat(fill.sz || '0'),
-          price: parseFloat(fill.px || '0'),
-          value: parseFloat(fill.sz || '0') * parseFloat(fill.px || '0'),
-          status: 'filled',
-          orderId: fill.oid?.toString() || fill.tid?.toString() || `${index}`
-        }))
+        .map((fill: any, index: number) => {
+          // Debug log the fill data to understand HyperLiquid's structure
+          console.log('🔍 Trade fill data:', fill);
+          
+          // Improved order type inference
+          let orderType: 'market' | 'limit' = 'limit'; // Default to limit
+          
+          // Market orders in HyperLiquid typically have IoC timing
+          if (fill.tif === 'Ioc' || fill.tif === 'IOC') {
+            orderType = 'market';
+          }
+          // Additional checks for market orders
+          else if (fill.dir === 'Close' || fill.liquidation) {
+            orderType = 'market';
+          }
+          // Check if order was immediately filled (characteristic of market orders)
+          else if (fill.startPosition === fill.sz) {
+            orderType = 'market';
+          }
+          
+          console.log('🔍 Inferred order type:', orderType, 'for order ID:', fill.oid);
+          
+          return {
+            id: `${fill.oid || fill.tid || index}`,
+            timestamp: fill.time || Date.now(),
+            symbol: fill.coin || 'Unknown',
+            side: fill.side === 'A' ? 'buy' : 'sell',
+            quantity: parseFloat(fill.sz || '0'),
+            price: parseFloat(fill.px || '0'),
+            value: parseFloat(fill.sz || '0') * parseFloat(fill.px || '0'),
+            status: 'filled',
+            orderId: fill.oid?.toString() || fill.tid?.toString() || `${index}`,
+            type: orderType
+          };
+        })
         .sort((a: any, b: any) => b.timestamp - a.timestamp)
         .slice(0, limit); // Limit results to prevent UI issues
       
