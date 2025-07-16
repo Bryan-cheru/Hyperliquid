@@ -3,6 +3,7 @@ import Account from "./Account";
 import { AnimatePresence } from "framer-motion";
 import DeleteModal from "./DeleteModal/DeleteModal";
 import { useTrading } from "../../hooks/useTrading";
+import { fetchAccountData } from "../../utils/hyperLiquidAPI";
 import './scrollbar.css';
 
 // Define structure for each account
@@ -17,6 +18,7 @@ interface AccountInfo {
   selected: boolean;
   isMerged?: boolean;
   mergedIds?: number[];
+  openOrdersCount?: number; // Add field for open orders count
 }
 
 // Props passed from parent component
@@ -29,30 +31,95 @@ interface Props {
 const AccountsWrapper = ({ setAccNum, setModal }: Props) => {
   // Modal and UI state management
   const [deleteModal, setDeleteModal] = useState(false);
-  const [name, setName] = useState("");
   const [show, setShow] = useState(false);
   const [accountNameInput, setAccountNameInput] = useState("");
   const [selectedMergedId, setSelectedMergedId] = useState<number | null>(null);
   const [selectedToDelete, setSelectedToDelete] = useState<number[]>([]);
 
-  // Initial 10 account objects
+  // Get trading context to monitor agent account connections
+  const { agentAccount } = useTrading();
+
+  // Initial 10 account objects with default "N/A" and "Not Connected" values
   const [accounts, setAccounts] = useState<AccountInfo[]>(
     Array.from({ length: 10 }, (_, i) => ({
       title: "Account",
       num: i + 1,
-      status: "ACTIVE",
-      pair: i % 2 === 0 ? "BTC/USDT" : "ETH/USDT",
-      leverage: i % 2 === 0 ? "20x Leverage" : "15x Leverage",
-      balance: `$${(5000 + i * 100).toFixed(2)}`,
-      pnl: `+$${(100 + i * 10).toFixed(2)}`,
+      status: "Not Connected",
+      pair: "N/A",
+      leverage: "N/A",
+      balance: "N/A",
+      pnl: "N/A",
       selected: false,
+      openOrdersCount: 0,
     }))
   );
 
   // Sync account count to parent
   useEffect(() => {
     setAccNum(accounts.length);
-  }, [accounts]);
+  }, [accounts, setAccNum]);
+
+  // Update account data when agent account connects
+  useEffect(() => {
+    const updateAccountData = async () => {
+      if (agentAccount && agentAccount.connectionStatus === "connected") {
+        console.log('🔄 Agent account connected, fetching real data for account:', agentAccount.accountName);
+        
+        try {
+          const accountData = await fetchAccountData(agentAccount.publicKey);
+          
+          // Update the specific account that matches the connected agent
+          setAccounts(prev => prev.map(acc => 
+            acc.num === agentAccount.accountId 
+              ? {
+                  ...acc,
+                  status: "ACTIVE",
+                  pair: "BTC/USDT", // Could be made dynamic based on trading activity
+                  leverage: "20x Leverage", // Could be fetched from account settings
+                  balance: accountData.balance,
+                  pnl: accountData.pnl,
+                }
+              : acc
+          ));
+          
+          console.log('✅ Account data updated successfully for account', agentAccount.accountId);
+        } catch (error) {
+          console.error('❌ Failed to fetch account data:', error);
+          
+          // Update account status to show connection but with error state
+          setAccounts(prev => prev.map(acc => 
+            acc.num === agentAccount.accountId 
+              ? {
+                  ...acc,
+                  status: "ERROR",
+                  pair: "N/A",
+                  leverage: "N/A",
+                  balance: "Error",
+                  pnl: "Error",
+                }
+              : acc
+          ));
+        }
+      }
+    };
+
+    updateAccountData();
+  }, [agentAccount]);
+
+  // Reset account data when agent disconnects
+  useEffect(() => {
+    if (!agentAccount) {
+      // Reset all accounts to default state when no agent is connected
+      setAccounts(prev => prev.map(acc => ({
+        ...acc,
+        status: "Not Connected",
+        pair: "N/A",
+        leverage: "N/A", 
+        balance: "N/A",
+        pnl: "N/A",
+      })));
+    }
+  }, [agentAccount]);
 
   // Toggle selection for individual account
   const handleToggleSelect = (id: number) => {
@@ -139,15 +206,24 @@ const AccountsWrapper = ({ setAccNum, setModal }: Props) => {
       return alert("Please enter a name for the new merged account.");
     }
 
-    // Combine balances and PnLs
-    const mergedBalance = selectedAccounts.reduce((sum, acc) => {
+    // Only merge accounts that have valid balance data (connected accounts)
+    const connectableAccounts = selectedAccounts.filter(acc => 
+      acc.balance !== "N/A" && acc.balance !== "Error" && acc.pnl !== "N/A" && acc.pnl !== "Error"
+    );
+
+    if (connectableAccounts.length === 0) {
+      return alert("No connected accounts selected. Please connect at least one account before merging.");
+    }
+
+    // Combine balances and PnLs only from connected accounts
+    const mergedBalance = connectableAccounts.reduce((sum, acc) => {
       const balance = parseFloat(acc.balance.replace(/[$,]/g, ""));
-      return sum + balance;
+      return sum + (isNaN(balance) ? 0 : balance);
     }, 0).toFixed(2);
 
-    const mergedPnL = selectedAccounts.reduce((sum, acc) => {
+    const mergedPnL = connectableAccounts.reduce((sum, acc) => {
       const pnl = parseFloat(acc.pnl.replace(/[+$,]/g, ""));
-      return sum + pnl;
+      return sum + (isNaN(pnl) ? 0 : pnl);
     }, 0).toFixed(2);
 
     // Create merged account with new ID
@@ -155,8 +231,8 @@ const AccountsWrapper = ({ setAccNum, setModal }: Props) => {
     const mergedAccount: AccountInfo = {
       title: accountNameInput.trim(),
       num: lastNum + 1,
-      status: "ACTIVE",
-      pair: selectedAccounts[0].pair,
+      status: "ACTIVE", // Merged accounts are active if they contain connected accounts
+      pair: connectableAccounts[0].pair || "N/A",
       leverage: "15x Leverage",
       balance: `$${mergedBalance}`,
       pnl: `+$${mergedPnL}`,
@@ -276,7 +352,6 @@ const AccountsWrapper = ({ setAccNum, setModal }: Props) => {
               acc={acc}
               id={acc.num}
               getId={handleToggleSelect}
-              getName={setName}
             />
           ))}
         </AnimatePresence>

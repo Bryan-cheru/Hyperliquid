@@ -22,7 +22,7 @@ interface AccountProps {
   acc: AccountInfo;
   id: number;
   getId: (id: number) => void;
-  getName: (name: string) => void;
+  getName?: (name: string) => void; // Make optional since not always used
 }
 
 const Account = ({ acc, id, getId, getName }: AccountProps) => {
@@ -59,7 +59,7 @@ const Account = ({ acc, id, getId, getName }: AccountProps) => {
       const next = !prev;
       if (next) {
         getId(id);
-        getName(`${acc.title} ${acc.num}`);
+        getName?.(`${acc.title} ${acc.num}`); // Use optional chaining
       }
       return next;
     });
@@ -87,14 +87,14 @@ const Account = ({ acc, id, getId, getName }: AccountProps) => {
       const verification = await verifyPrivateKeyToAddress(privateKey.trim(), publicKey.trim());
       
       if (!verification.isValid) {
-        console.error('❌ Private key verification failed:', verification.error);
+        console.error('Private key verification failed:', verification.error);
         setErrorMessage(`Private key mismatch: ${verification.error}`);
         setConnectionStatus("error");
         setIsConnecting(false);
         return;
       }
       
-      console.log('✅ Private key verification successful');
+      console.log('Private key verification successful');
       console.log('  Expected address:', publicKey.trim());
       console.log('  Derived address:', verification.actualAddress);
 
@@ -122,9 +122,9 @@ const Account = ({ acc, id, getId, getName }: AccountProps) => {
       if (accountResponse.ok) {
         const accountData = await accountResponse.json();
         
-        console.log('✅ Agent wallet connection successful');
-        console.log('📊 Account Data:', accountData);
-        console.log('✅ Agent wallet verified successfully');
+        console.log('Agent wallet connection successful');
+        console.log('Account Data:', accountData);
+        console.log('Agent wallet verified successfully');
         
         // For agent accounts, we just need to verify the keys work
         // The master account handles displaying balance/PnL data
@@ -132,7 +132,7 @@ const Account = ({ acc, id, getId, getName }: AccountProps) => {
         setIsConnecting(false);
         setErrorMessage("");
         
-        console.log('✅ Agent wallet connected successfully with Python-compatible signing');
+        console.log('Agent wallet connected successfully with Python-compatible signing');
         console.log('🔐 Signature verification should now work correctly with HyperLiquid');
         
         // Set agent account for trading context
@@ -251,7 +251,9 @@ const Account = ({ acc, id, getId, getName }: AccountProps) => {
       {connectionStatus === "connected" && (
         <div className="mt-2">
           <p className="text-[rgba(255,255,255,0.70)] text-xs">
-            Open Orders: <span className="text-white font-bold text-xs">-</span>
+            Open Orders: <span className="text-white font-bold text-xs">
+              {acc.status === "ACTIVE" ? "Loading..." : "N/A"}
+            </span>
           </p>
         </div>
       )}
@@ -261,7 +263,6 @@ const Account = ({ acc, id, getId, getName }: AccountProps) => {
         <div className="mt-4 pt-4 flex flex-col gap-4 text-white text-sm">
           {/* API Key inputs */}
           <div className="flex flex-col gap-2">
-            <h3 className="text-xs text-gray-400 font-semibold">🤖 Agent Account Setup (Trading)</h3>
             <input
               type="text"
               placeholder="Wallet Address (0x...)"
@@ -286,7 +287,7 @@ const Account = ({ acc, id, getId, getName }: AccountProps) => {
             {connectionStatus === "connected" && (
               <div className="flex items-center gap-2 text-green-400 text-xs">
                 <div className="w-2 h-2 bg-green-400 rounded-full"></div>
-                🤖 Agent account connected - Ready for trading
+                Agent account connected - Ready for trading
               </div>
             )}
             
