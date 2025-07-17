@@ -116,22 +116,17 @@ export const TradingProvider = ({ children }: { children: ReactNode }) => {
     try {
       const history = await marketDataService.fetchTradeHistory(connectedAccount.publicKey, 200); // Fetch up to 200 trades like Hyperliquid
       
-      console.log('🔍 Raw trade history from API:', history);
-      console.log('🔍 Current order type registry:', Array.from(orderTypeRegistry.entries()));
-      
       // Enhance trade history with locally tracked order types
       const enhancedHistory = history.map(trade => {
         // Check if we have locally tracked order type for this order
         const localOrderType = orderTypeRegistry.get(trade.orderId);
         if (localOrderType) {
-          console.log('🔄 Overriding order type for', trade.orderId, 'from', trade.type, 'to', localOrderType);
+          console.log('🔄 Using registered order type:', localOrderType, 'for order:', trade.orderId);
           return { ...trade, type: localOrderType };
         }
-        console.log('🔍 No local override for order', trade.orderId, '- using inferred type:', trade.type);
         return trade;
       });
       
-      console.log('🔍 Enhanced trade history:', enhancedHistory);
       setTradeHistory(enhancedHistory);
     } catch (error) {
       console.error('Error refreshing trade history:', error);
@@ -254,7 +249,82 @@ export const TradingProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
-  // Execute trading order using HyperLiquid API
+  // Order split helper function
+  const createSplitOrders = (order: TradingOrder): TradingOrder[] => {
+    if (!order.orderSplit || !order.splitCount || order.splitCount <= 1) {
+      return [order]; // Return single order if split is disabled
+    }
+
+    const orders: TradingOrder[] = [];
+    const totalQuantity = order.quantity;
+    const splitCount = Math.min(order.splitCount, 30); // Max 30 splits
+    
+    // Calculate quantity per split
+    const quantityPerSplit = totalQuantity / splitCount;
+    
+    // Calculate price range for splits
+    let minPrice = order.minPrice || 0;
+    let maxPrice = order.maxPrice || 0;
+    
+    // If no price range specified, use current market price +/- 2%
+    if (minPrice === 0 || maxPrice === 0) {
+      const currentPrice = getPrice(order.symbol.replace('/USDT', '').replace('/USDC', '')) || 0;
+      if (currentPrice > 0) {
+        minPrice = currentPrice * 0.98; // 2% below
+        maxPrice = currentPrice * 1.02; // 2% above
+      }
+    }
+    
+    console.log(`🔄 Creating ${splitCount} split orders:`);
+    console.log(`   Total quantity: ${totalQuantity}`);
+    console.log(`   Quantity per split: ${quantityPerSplit.toFixed(6)}`);
+    console.log(`   Price range: $${minPrice.toFixed(2)} - $${maxPrice.toFixed(2)}`);
+    console.log(`   Scale type: ${order.scaleType}`);
+    
+    for (let i = 0; i < splitCount; i++) {
+      let splitPrice: number;
+      
+      // Calculate price distribution based on scale type
+      switch (order.scaleType) {
+        case 'Lower': {
+          // Concentrate more orders at lower prices
+          const lowerRatio = Math.pow((splitCount - i) / splitCount, 2);
+          splitPrice = minPrice + (maxPrice - minPrice) * (1 - lowerRatio);
+          break;
+        }
+          
+        case 'Upper': {
+          // Concentrate more orders at higher prices  
+          const upperRatio = Math.pow((i + 1) / splitCount, 2);
+          splitPrice = minPrice + (maxPrice - minPrice) * upperRatio;
+          break;
+        }
+          
+        case 'Mid point':
+        default: {
+          // Linear distribution
+          splitPrice = minPrice + (maxPrice - minPrice) * (i / (splitCount - 1));
+          break;
+        }
+      }
+      
+      // Create split order
+      const splitOrder: TradingOrder = {
+        ...order,
+        quantity: quantityPerSplit,
+        price: splitPrice,
+        orderSplit: false, // Prevent recursive splitting
+        splitCount: 1
+      };
+      
+      orders.push(splitOrder);
+      console.log(`   Split ${i + 1}: ${quantityPerSplit.toFixed(6)} @ $${splitPrice.toFixed(2)}`);
+    }
+    
+    return orders;
+  };
+
+  // Execute order with optional order splitting
   const executeOrder = async (order: TradingOrder): Promise<{ success: boolean; message: string; orderId?: string }> => {
     if (!agentAccount) {
       return { success: false, message: "No agent account configured for trading. Please add an agent account first." };
@@ -269,6 +339,72 @@ export const TradingProvider = ({ children }: { children: ReactNode }) => {
     }
 
     setIsTrading(true);
+    
+    try {
+      // Handle order splitting if enabled
+      if (order.orderSplit && order.splitCount && order.splitCount > 1) {
+        console.log('🔄 Order splitting enabled - creating multiple orders');
+        const splitOrders = createSplitOrders(order);
+        
+        let successCount = 0;
+        let failedCount = 0;
+        const results: string[] = [];
+        
+        // Execute split orders sequentially with small delays
+        for (let i = 0; i < splitOrders.length; i++) {
+          const splitOrder = splitOrders[i];
+          console.log(`📦 Executing split order ${i + 1}/${splitOrders.length}`);
+          
+          try {
+            // Add small delay between orders to avoid rate limiting
+            if (i > 0) {
+              await new Promise(resolve => setTimeout(resolve, 1000));
+            }
+            
+            const result = await executeSingleOrder(splitOrder);
+            if (result.success) {
+              successCount++;
+              results.push(`Split ${i + 1}: ✅ Success (ID: ${result.orderId})`);
+            } else {
+              failedCount++;
+              results.push(`Split ${i + 1}: ❌ Failed - ${result.message}`);
+            }
+          } catch (error) {
+            failedCount++;
+            results.push(`Split ${i + 1}: ❌ Error - ${error instanceof Error ? error.message : 'Unknown error'}`);
+          }
+        }
+        
+        // Return consolidated results
+        const totalOrders = splitOrders.length;
+        const summary = `Split Order Results: ${successCount}/${totalOrders} successful, ${failedCount} failed`;
+        
+        return {
+          success: successCount > 0,
+          message: `${summary}\n\n${results.join('\n')}`,
+          orderId: successCount > 0 ? `split-${successCount}-of-${totalOrders}` : undefined
+        };
+      } else {
+        // Execute single order
+        return await executeSingleOrder(order);
+      }
+    } catch (error) {
+      console.error('❌ Error in executeOrder:', error);
+      return {
+        success: false,
+        message: `Order execution failed: ${error instanceof Error ? error.message : 'Unknown error'}`
+      };
+    } finally {
+      setIsTrading(false);
+    }
+  };
+
+  // Execute a single order (used by both regular and split order execution)
+  const executeSingleOrder = async (order: TradingOrder): Promise<{ success: boolean; message: string; orderId?: string }> => {
+    // Validate agent account is available for this single order execution
+    if (!agentAccount || !agentAccount.privateKey) {
+      return { success: false, message: "Agent account not available for order execution" };
+    }
     
     try {
       console.log('🚀 Executing HyperLiquid order with UI parameters:', order);

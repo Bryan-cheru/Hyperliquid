@@ -170,9 +170,6 @@ class MarketDataService {
       
       return allFills
         .map((fill: any, index: number) => {
-          // Debug log the fill data to understand HyperLiquid's structure
-          console.log('🔍 Trade fill data:', fill);
-          
           // Improved order type inference
           let orderType: 'market' | 'limit' = 'limit'; // Default to limit
           
@@ -188,8 +185,6 @@ class MarketDataService {
           else if (fill.startPosition === fill.sz) {
             orderType = 'market';
           }
-          
-          console.log('🔍 Inferred order type:', orderType, 'for order ID:', fill.oid);
           
           return {
             id: `${fill.oid || fill.tid || index}`,
