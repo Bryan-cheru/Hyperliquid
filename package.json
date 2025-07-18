@@ -33,8 +33,8 @@
   },
   "scripts": {
     "dev": "vite",
-    "electron": "wait-on http://localhost:5173 && electron .",
-    "start": "concurrently \"vite\" \"wait-on http://localhost:5173 && electron .\"",
+    "electron": "wait-on http://localhost:5175 && electron .",
+    "start": "concurrently \"vite\" \"wait-on http://localhost:5175 && electron .\"",
     "build-electron": "tsc -p tsconfig.electron.json",
     "lint": "eslint .",
     "preview": "vite preview",
