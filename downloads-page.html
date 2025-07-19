@@ -1,50 +1,187 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>HypeLiquid Sniper - Downloads</title>
     <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #0f172a; color: #e2e8f0; line-height: 1.6; }
-        .container { max-width: 1200px; margin: 0 auto; padding: 20px; }
-        h1 { text-align: center; color: #38bdf8; margin-bottom: 40px; font-size: 2.5rem; }
-        .platform-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(350px, 1fr)); gap: 30px; margin-bottom: 40px; }
-        .platform-card { background: linear-gradient(135deg, #1e293b 0%, #334155 100%); border-radius: 16px; padding: 30px; box-shadow: 0 10px 25px rgba(0,0,0,0.3); transition: transform 0.3s ease; }
-        .platform-card:hover { transform: translateY(-5px); }
-        .platform-header { display: flex; align-items: center; margin-bottom: 20px; }
-        .platform-icon { font-size: 2rem; margin-right: 15px; }
-        .platform-title { font-size: 1.5rem; font-weight: 600; }
-        .recommended { border: 2px solid #10b981; }
-        .recommended .platform-title { color: #10b981; }
-        .download-options { margin: 20px 0; }
-        .download-btn { display: inline-block; background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%); color: white; padding: 12px 24px; text-decoration: none; border-radius: 8px; margin: 8px 8px 8px 0; font-weight: 500; transition: all 0.3s ease; }
-        .download-btn:hover { background: linear-gradient(135deg, #2563eb 0%, #1e40af 100%); transform: translateY(-2px); }
-        .download-btn.primary { background: linear-gradient(135deg, #10b981 0%, #059669 100%); }
-        .download-btn.primary:hover { background: linear-gradient(135deg, #059669 0%, #047857 100%); }
-        .file-info { font-size: 0.9rem; color: #94a3b8; margin-top: 10px; }
-        .instructions { background: #1e293b; padding: 15px; border-radius: 8px; margin-top: 15px; border-left: 4px solid #3b82f6; }
-        .web-section { background: linear-gradient(135deg, #0ea5e9 0%, #0284c7 100%); border-radius: 16px; padding: 40px; text-align: center; margin-bottom: 40px; }
-        .web-section h2 { color: white; margin-bottom: 15px; }
-        .web-btn { background: white; color: #0284c7; }
-        .web-btn:hover { background: #f1f5f9; }
-        .requirements { background: #1e293b; border-radius: 12px; padding: 25px; margin: 30px 0; }
-        .requirements h3 { color: #38bdf8; margin-bottom: 15px; }
-        .req-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px; }
-        .req-item { background: #334155; padding: 15px; border-radius: 8px; }
-        footer { text-align: center; margin-top: 40px; color: #64748b; }
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #0f172a;
+            color: #e2e8f0;
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        h1 {
+            text-align: center;
+            color: #38bdf8;
+            margin-bottom: 40px;
+            font-size: 2.5rem;
+        }
+
+        .platform-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+            gap: 30px;
+            margin-bottom: 40px;
+        }
+
+        .platform-card {
+            background: linear-gradient(135deg, #1e293b 0%, #334155 100%);
+            border-radius: 16px;
+            padding: 30px;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3);
+            transition: transform 0.3s ease;
+        }
+
+        .platform-card:hover {
+            transform: translateY(-5px);
+        }
+
+        .platform-header {
+            display: flex;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .platform-icon {
+            font-size: 2rem;
+            margin-right: 15px;
+        }
+
+        .platform-title {
+            font-size: 1.5rem;
+            font-weight: 600;
+        }
+
+        .recommended {
+            border: 2px solid #10b981;
+        }
+
+        .recommended .platform-title {
+            color: #10b981;
+        }
+
+        .download-options {
+            margin: 20px 0;
+        }
+
+        .download-btn {
+            display: inline-block;
+            background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+            color: white;
+            padding: 12px 24px;
+            text-decoration: none;
+            border-radius: 8px;
+            margin: 8px 8px 8px 0;
+            font-weight: 500;
+            transition: all 0.3s ease;
+        }
+
+        .download-btn:hover {
+            background: linear-gradient(135deg, #2563eb 0%, #1e40af 100%);
+            transform: translateY(-2px);
+        }
+
+        .download-btn.primary {
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+        }
+
+        .download-btn.primary:hover {
+            background: linear-gradient(135deg, #059669 0%, #047857 100%);
+        }
+
+        .file-info {
+            font-size: 0.9rem;
+            color: #94a3b8;
+            margin-top: 10px;
+        }
+
+        .instructions {
+            background: #1e293b;
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 15px;
+            border-left: 4px solid #3b82f6;
+        }
+
+        .web-section {
+            background: linear-gradient(135deg, #0ea5e9 0%, #0284c7 100%);
+            border-radius: 16px;
+            padding: 40px;
+            text-align: center;
+            margin-bottom: 40px;
+        }
+
+        .web-section h2 {
+            color: white;
+            margin-bottom: 15px;
+        }
+
+        .web-btn {
+            background: white;
+            color: #0284c7;
+        }
+
+        .web-btn:hover {
+            background: #f1f5f9;
+        }
+
+        .requirements {
+            background: #1e293b;
+            border-radius: 12px;
+            padding: 25px;
+            margin: 30px 0;
+        }
+
+        .requirements h3 {
+            color: #38bdf8;
+            margin-bottom: 15px;
+        }
+
+        .req-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+        }
+
+        .req-item {
+            background: #334155;
+            padding: 15px;
+            border-radius: 8px;
+        }
+
+        footer {
+            text-align: center;
+            margin-top: 40px;
+            color: #64748b;
+        }
     </style>
 </head>
+
 <body>
     <div class="container">
         <h1>🚀 HypeLiquid Sniper Downloads</h1>
-        
+
         <div class="web-section">
             <h2>🌐 No Download Required!</h2>
             <p>Use HypeLiquid Sniper directly in your browser - works on all devices</p>
             <a href="/" class="download-btn web-btn">Launch Web App</a>
         </div>
-        
+
         <div class="platform-grid">
             <!-- Windows -->
             <div class="platform-card recommended">
@@ -66,7 +203,7 @@
                     • <strong>ZIP:</strong> Extract and run "HypeLiquid Sniper.exe"
                 </div>
             </div>
-            
+
             <!-- Linux -->
             <div class="platform-card">
                 <div class="platform-header">
@@ -87,7 +224,7 @@
                     • <strong>ZIP:</strong> Extract and run "./client"
                 </div>
             </div>
-            
+
             <!-- macOS -->
             <div class="platform-card">
                 <div class="platform-header">
@@ -103,7 +240,7 @@
                 </div>
             </div>
         </div>
-        
+
         <div class="requirements">
             <h3>📋 System Requirements</h3>
             <div class="req-grid">
@@ -127,10 +264,12 @@
                 </div>
             </div>
         </div>
-        
+
         <footer>
-            <p>🎯 <strong>Recommended:</strong> Windows users download the .EXE file | Linux users download AppImage | Everyone else use the Web App</p>
+            <p>🎯 <strong>Recommended:</strong> Windows users download the .EXE file | Linux users download AppImage |
+                Everyone else use the Web App</p>
         </footer>
     </div>
 </body>
+
 </html>
