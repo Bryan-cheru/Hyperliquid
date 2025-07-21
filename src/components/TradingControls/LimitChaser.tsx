@@ -18,6 +18,10 @@ export interface LimitChaserParams {
     triggerOnCandleClose: boolean;
     timeframe: string;
     stopTriggerPrice?: number; // Add stop trigger price reference
+    // Add distance-based parameters
+    useDistance: boolean; // Toggle between direct price and distance mode
+    distance: number; // Distance value
+    distanceType: 'percentage' | 'absolute'; // Distance type
 }
 
 // Enhanced LimitChaser component with basket order integration
@@ -32,6 +36,11 @@ const LimitChaser = ({ clicked, setClicked, onParametersChange }: Props) => {
     const [maxChases, setMaxChases] = useState<number>(10);
     const [triggerOnCandleClose, setTriggerOnCandleClose] = useState<boolean>(true);
     const [timeframe, setTimeframe] = useState<string>("15m");
+    
+    // Add distance-based state variables
+    const [useDistance, setUseDistance] = useState<boolean>(false); // Toggle between modes
+    const [distance, setDistance] = useState<number>(1.0); // Default 1% distance
+    const [distanceType, setDistanceType] = useState<'percentage' | 'absolute'>('percentage');
     
     // Auto-update price limits based on current market price and sync chaser price with stop trigger
     useEffect(() => {
@@ -65,11 +74,14 @@ const LimitChaser = ({ clicked, setClicked, onParametersChange }: Props) => {
                 maxChases,
                 triggerOnCandleClose,
                 timeframe,
-                stopTriggerPrice: parseFloat(stopTriggerPrice)
+                stopTriggerPrice: parseFloat(stopTriggerPrice),
+                useDistance,
+                distance,
+                distanceType
             };
             onParametersChange(params);
         }
-    }, [clicked, chaserPrice, stopTriggerPrice, filled, longPriceLimit, shortPriceLimit, updateInterval, maxChases, triggerOnCandleClose, timeframe, onParametersChange]);
+    }, [clicked, chaserPrice, stopTriggerPrice, filled, longPriceLimit, shortPriceLimit, updateInterval, maxChases, triggerOnCandleClose, timeframe, useDistance, distance, distanceType, onParametersChange]);
 
     return (
         <div className="border-t border-[#373A45] pt-4">
@@ -163,58 +175,112 @@ const LimitChaser = ({ clicked, setClicked, onParametersChange }: Props) => {
                                     />
                                     <label className="text-xs text-gray-300">Candle Close Trigger</label>
                                 </div>
-                            </div>
                         </div>
-
-                        {/* "Filled or Cancel" toggle and stop trigger + chaser price inputs */}
-                        <div className="flex items-center gap-4">
+                        
+                        {/* Filled or Cancel toggle */}
+                        <div className="flex items-center gap-4 mb-6">
                             <p
                                 className={`inter text-xs underline cursor-pointer ${filled ? "text-blue-400" : "text-[#C5C8D0]"}`}
                                 onClick={() => setFilled(prev => !prev)}
                             >
-                                Filled or Cancel (IOC)
+                                Filled or Cancel
                             </p>
-                            
-                            {/* Stop Trigger Price Input */}
-                            <div className="flex flex-col gap-1">
-                                <label className="text-xs text-gray-300">Stop Trigger Price</label>
+                            <input
+                                type="number"
+                                step="0.01"
+                                min="0"
+                                value={stopTriggerPrice}
+                                onChange={(e) => {
+                                    const val = e.target.value;
+                                    setStopTriggerPrice(val);
+                                    // Auto-sync chaser price when stop trigger changes
+                                    if (val && !isNaN(parseFloat(val))) {
+                                        setChaserPrice(val);
+                                    }
+                                }}
+                                disabled={!clicked}
+                                readOnly={!clicked}
+                                placeholder="00"
+                                className={`w-32 text-center px-3 py-2 bg-[#373A45] border border-[#4A5568] rounded text-white ${clicked ? "" : "bg-gray-800"}`}
+                            />
+                        </div>
+
+                        {/* Long and Short Price Limits */}
+                        <div className="grid grid-cols-2 gap-4 mb-6">
+                            <div>
+                                <h3 className="text-white font-medium mb-2">Long Price Limit</h3>
+                                <input
+                                    type="number"
+                                    step="0.01"
+                                    value={longPriceLimit}
+                                    onChange={(e) => setLongPriceLimit(parseFloat(e.target.value) || 0)}
+                                    disabled={!clicked}
+                                    readOnly={!clicked}
+                                    placeholder="Enter Price"
+                                    className={`w-full px-3 py-2 bg-[#373A45] border border-[#4A5568] rounded text-white text-center ${clicked ? "" : "bg-gray-800"}`}
+                                />
+                            </div>
+                            <div>
+                                <h3 className="text-white font-medium mb-2">Short Price Limit</h3>
+                                <input
+                                    type="number"
+                                    step="0.01"
+                                    value={shortPriceLimit}
+                                    onChange={(e) => setShortPriceLimit(parseFloat(e.target.value) || 0)}
+                                    disabled={!clicked}
+                                    readOnly={!clicked}
+                                    placeholder="Enter Price"
+                                    className={`w-full px-3 py-2 bg-[#373A45] border border-[#4A5568] rounded text-white text-center ${clicked ? "" : "bg-gray-800"}`}
+                                />
+                            </div>
+                        </div>
+
+                        {/* Price Distance Section */}
+                        <div className="mb-6">
+                            <h3 className="text-white font-medium mb-3">Price Distance</h3>
+                            <div className="flex items-center gap-4">
+                                {/* Distance Slider */}
+                                <div className="flex-1 relative">
+                                    <input
+                                        type="range"
+                                        min="0"
+                                        max="5"
+                                        step="0.01"
+                                        value={distance}
+                                        onChange={(e) => setDistance(parseFloat(e.target.value))}
+                                        disabled={!clicked}
+                                        className="w-full h-2 bg-gray-600 rounded-lg appearance-none cursor-pointer"
+                                        style={{
+                                            background: !clicked ? '#6b7280' : `linear-gradient(to right, #F0B90B 0%, #F0B90B ${(distance / 5) * 100}%, #6b7280 ${(distance / 5) * 100}%, #6b7280 100%)`
+                                        }}
+                                    />
+                                    <div className="flex justify-between text-sm text-white mt-1 font-medium">
+                                        <span>0%</span>
+                                        <span>5%</span>
+                                    </div>
+                                </div>
+                                
+                                <span className="text-white text-sm">or</span>
+                                
+                                {/* Manual Distance Input */}
                                 <input
                                     type="number"
                                     step="0.01"
                                     min="0"
-                                    value={stopTriggerPrice}
+                                    max="5"
+                                    value={distance.toFixed(2)}
                                     onChange={(e) => {
-                                        const val = e.target.value;
-                                        setStopTriggerPrice(val);
-                                        // Auto-sync chaser price when stop trigger changes
-                                        if (val && !isNaN(parseFloat(val))) {
-                                            setChaserPrice(val);
+                                        const val = parseFloat(e.target.value);
+                                        if (!isNaN(val) && val >= 0 && val <= 5) {
+                                            setDistance(val);
                                         }
                                     }}
                                     disabled={!clicked}
-                                    readOnly={!clicked}
-                                    placeholder="Trigger $"
-                                    className={`w-24 text-xs px-2 py-1 bg-[#373A45] border border-[#4A5568] rounded text-white ${clicked ? "" : "bg-gray-800"}`}
+                                    className={`w-20 px-3 py-2 bg-[#373A45] border border-[#4A5568] rounded text-white text-center ${clicked ? "" : "bg-gray-800"}`}
                                 />
-                            </div>
-                            
-                            {/* Limit Chaser Price Input */}
-                            <div className="flex flex-col gap-1">
-                                <label className="text-xs text-gray-300">Chaser Price</label>
-                                <input
-                                    type="number"
-                                    step="0.01"
-                                    min="0"
-                                    value={chaserPrice}
-                                    onChange={(e) => setChaserPrice(e.target.value)}
-                                    disabled={!clicked}
-                                    readOnly={!clicked}
-                                    placeholder="Limit $"
-                                    className={`w-24 text-xs px-2 py-1 bg-[#373A45] border border-[#4A5568] rounded text-white ${clicked ? "" : "bg-gray-800"}`}
-                                />
-                                <p className="text-xs text-yellow-400">Auto-synced with trigger</p>
                             </div>
                         </div>
+                    </div>
 
                         {/* Long and Short Price Limit inputs */}
                         <div>

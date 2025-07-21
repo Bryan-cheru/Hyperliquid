@@ -257,7 +257,9 @@ export const TradingProvider = ({ children }: { children: ReactNode }) => {
 
     const orders: TradingOrder[] = [];
     const totalQuantity = order.quantity;
-    const splitCount = Math.min(order.splitCount, 30); // Max 30 splits
+    // Different max splits for Market (30) vs Limit (100) orders
+    const maxSplits = order.orderType === 'market' ? 30 : 100;
+    const splitCount = Math.min(order.splitCount, maxSplits);
     
     // Calculate quantity per split
     const quantityPerSplit = totalQuantity / splitCount;
