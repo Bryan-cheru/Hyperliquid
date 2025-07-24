@@ -45,7 +45,7 @@ const Account = ({ acc, id, getId, getName }: AccountProps) => {
   
   // Trading context to connect agent account for trading
   const { setAgentAccount } = useTrading();
-  const { addAgentAccount } = useMultiAccountTrading();
+  const { addAgentAccount, refreshAccountData } = useMultiAccountTrading();
   
   const cardRef = useRef<HTMLDivElement | null>(null); // Ref to detect outside clicks
 
@@ -141,6 +141,32 @@ const Account = ({ acc, id, getId, getName }: AccountProps) => {
       document.removeEventListener("mousedown", handleClickOutside);
     };
   }, [connectionStatus]); // Add connectionStatus as dependency
+
+  // Effect to periodically refresh account data when connected
+  useEffect(() => {
+    let intervalId: NodeJS.Timeout;
+    
+    if (connectionStatus === "connected") {
+      // Refresh account data every 30 seconds when connected
+      intervalId = setInterval(async () => {
+        try {
+          console.log(`🔄 Periodic refresh for Account ${acc.num}...`);
+          await refreshAccountData(acc.num);
+        } catch (error) {
+          console.error(`❌ Error during periodic refresh for Account ${acc.num}:`, error);
+        }
+      }, 30000); // 30 seconds
+      
+      console.log(`⏰ Started periodic data refresh for Account ${acc.num}`);
+    }
+    
+    return () => {
+      if (intervalId) {
+        clearInterval(intervalId);
+        console.log(`⏹️ Stopped periodic data refresh for Account ${acc.num}`);
+      }
+    };
+  }, [connectionStatus, acc.num, refreshAccountData]);
 
   // Handles click on the card; expands it and notifies parent of selected ID and Name
   const handleCardClick = () => {
@@ -246,6 +272,15 @@ const Account = ({ acc, id, getId, getName }: AccountProps) => {
         // Add to multi-account context
         addAgentAccount(multiAgentAccountData);
         console.log('✅ Agent account added to multi-account system:', multiAgentAccountData.accountName);
+        
+        // Refresh account data to fetch real balance, PnL, leverage from HyperLiquid API
+        try {
+          console.log('🔄 Refreshing account data to fetch real balance and PnL...');
+          await refreshAccountData(acc.num);
+          console.log('✅ Real account data fetched successfully');
+        } catch (error) {
+          console.error('❌ Error refreshing account data:', error);
+        }
         
         // Also set for backward compatibility with old trading context
         const agentAccountData: AgentAccount = {

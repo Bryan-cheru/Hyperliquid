@@ -58,24 +58,35 @@ const AccountsWrapper = ({ setAccNum, setModal }: Props) => {
     setAccNum(accounts.length);
   }, [accounts, setAccNum]);
 
-  // Update account data to reflect multi-account connections
+  // Update account data to reflect multi-account connections with REAL data
   useEffect(() => {
     const connectedAgentAccounts = getConnectedAccounts();
     
-    // Update accounts state to reflect all connected multi-accounts
+    // Update accounts state to reflect all connected multi-accounts with real data
     setAccounts(prev => prev.map(acc => {
       // Check if this account ID has a connected agent in the multi-account system
       const connectedAgent = connectedAgentAccounts.find(agent => agent.accountId === acc.num);
       
       if (connectedAgent) {
+        // Format balance with proper currency display
+        const balanceFormatted = connectedAgent.balance !== "0.00" 
+          ? `$${parseFloat(connectedAgent.balance).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+          : "$0.00";
+        
+        // Format PnL with proper color indication
+        const pnlValue = parseFloat(connectedAgent.pnl);
+        const pnlFormatted = pnlValue >= 0 
+          ? `+$${Math.abs(pnlValue).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+          : `-$${Math.abs(pnlValue).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+        
         return {
           ...acc,
           status: "ACTIVE",
-          pair: "BTC/USDT", // Could be made dynamic
-          leverage: "20x Leverage", // Could be fetched from account settings
-          balance: "$1,000.00", // Will be updated with real data
-          pnl: "+$50.00", // Will be updated with real data
-          openOrdersCount: 0,
+          pair: connectedAgent.pair || "N/A",
+          leverage: connectedAgent.leverage || "N/A",
+          balance: balanceFormatted,
+          pnl: pnlFormatted,
+          openOrdersCount: connectedAgent.openOrdersCount || 0,
         };
       } else {
         return {

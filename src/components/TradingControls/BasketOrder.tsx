@@ -193,21 +193,21 @@ const BasketOrder: React.FC<BasketOrderProps> = ({ clicked, setClicked }) => {
           <>
             {/* Tab Navigation */}
             <div className="flex gap-2 border-b border-[#373A45] pb-2">
-          <button
-            data-testid="create-basket-tab"
-            onClick={() => setActiveTab('create')}
-            className={`px-4 py-2 rounded text-sm font-medium ${
-              activeTab === 'create' 
-                ? 'bg-[#F0B90B] text-black' 
-                : 'bg-[#24293A] text-white hover:bg-[#373A45]'
-            }`}
-          >
-            Create Basket
-          </button>
-          <button
-            onClick={() => setActiveTab('manage')}
-            className={`px-4 py-2 rounded text-sm font-medium ${
-              activeTab === 'manage' 
+              <button
+                data-testid="create-basket-tab"
+                onClick={() => setActiveTab('create')}
+                className={`px-4 py-2 rounded text-sm font-medium ${
+                  activeTab === 'create' 
+                    ? 'bg-[#F0B90B] text-black' 
+                    : 'bg-[#24293A] text-white hover:bg-[#373A45]'
+                }`}
+              >
+                Create Basket
+              </button>
+              <button
+                onClick={() => setActiveTab('manage')}
+                className={`px-4 py-2 rounded text-sm font-medium ${
+                  activeTab === 'manage' 
                 ? 'bg-[#F0B90B] text-black' 
                 : 'bg-[#24293A] text-white hover:bg-[#373A45]'
             }`}
@@ -536,11 +536,11 @@ const BasketOrder: React.FC<BasketOrderProps> = ({ clicked, setClicked }) => {
             )}
           </div>
         )}
-          </>
-        )}
-      </div>
-    </div>
-  );
+      </>
+    )}
+  </div>
+</div>
+);
 };
 
 export default BasketOrder;

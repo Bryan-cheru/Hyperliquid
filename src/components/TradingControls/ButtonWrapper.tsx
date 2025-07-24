@@ -19,6 +19,28 @@ const ButtonWrapper = ({ tradingParams }: ButtonWrapperProps) => {
 
   // Handle Long/Short trading using real UI parameters
   const handleTrade = async (side: "buy" | "sell") => {
+    // 🔍 DEBUG: Add comprehensive logging for SHORT button troubleshooting
+    if (side === "sell") {
+      console.log('\n🚨 SHORT BUTTON CLICKED - DEBUGGING:');
+      console.log('=================================');
+      console.log('1️⃣ Agent Account:', agentAccount ? '✓ Present' : '❌ Missing');
+      if (agentAccount) {
+        console.log('   - Account Name:', agentAccount.accountName);
+        console.log('   - Private Key:', agentAccount.privateKey ? '✓ Present' : '❌ Missing');
+        console.log('   - Connection Status:', agentAccount.connectionStatus);
+      }
+      console.log('2️⃣ Connected Account:', connectedAccount ? '✓ Present' : '❌ Missing');
+      if (connectedAccount) {
+        console.log('   - Trading Pair:', connectedAccount.pair);
+      }
+      console.log('3️⃣ Trading Parameters:', tradingParams ? '✓ Present' : '❌ Missing');
+      if (tradingParams) {
+        console.log('   - Order Type:', tradingParams.orderType);
+        console.log('   - Leverage:', tradingParams.leverage);
+        console.log('   - Position Size:', tradingParams.positionSize);
+      }
+    }
+
     if (!agentAccount) {
       setStatusMessage("Please add an agent account first to enable trading");
       return;
@@ -30,30 +52,31 @@ const ButtonWrapper = ({ tradingParams }: ButtonWrapperProps) => {
     }
 
     // Get the current trading pair from connected account
-    let symbol = connectedAccount.pair;
-    if (symbol.includes('/')) {
-      // Convert BTC/USDT to BTC-USD format for HyperLiquid
-      symbol = symbol.replace('/USDT', '-USD').replace('/USDC', '-USD');
-    }
+    // Convert display format (BTC-USD) to HyperLiquid API format (BTC)
+    const displayPair = connectedAccount.pair; // e.g., "BTC-USD"
+    const apiSymbol = displayPair.split('-')[0]; // Extract "BTC" from "BTC-USD"
+    
+    console.log(`🎯 Display pair: ${displayPair} -> API symbol: ${apiSymbol}`);
 
     // Use REAL trading parameters from UI inputs
-    const baseOrderSize = 0.001; // Base order size: 0.001 BTC (~$100)
+    // Adjust order size to fit $20 account - use much smaller BTC amount
+    const baseOrderSize = 0.0001; // Very small: 0.0001 BTC (~$10-12) to fit in $20 account
     const sizeMultiplier = tradingParams ? Math.max(tradingParams.positionSize / 100, 0.1) : 1; // Minimum 10% of base size
     
     const order: TradingOrder = {
-      symbol: symbol,
+      symbol: apiSymbol,
       side,
-      orderType: tradingParams?.orderType === "Market" ? "market" : "limit",
+      orderType: "market", // Force market orders to avoid price calculation issues
       quantity: baseOrderSize * sizeMultiplier, // Ensure minimum viable order size
       leverage: tradingParams?.leverage || 20,
-      price: tradingParams?.orderType === "Limit" ? tradingParams.triggerPrice : undefined,
-      stopPrice: tradingParams?.orderType === "Limit" ? tradingParams.stopPrice : undefined,
+      price: undefined, // No price needed for market orders
+      stopPrice: undefined, // No stop price for market orders
       stopLoss: tradingParams?.stopLoss ? tradingParams.stopLoss / 100 : undefined, // Convert percentage
-      // Additional parameters from UI
-      orderSplit: tradingParams?.orderSplit || false,
-      minPrice: tradingParams?.minPrice,
-      maxPrice: tradingParams?.maxPrice,
-      splitCount: tradingParams?.splitCount || 1,
+      // DISABLE automatic order splitting for simple trades
+      orderSplit: false, // Force disable order splitting
+      minPrice: undefined,
+      maxPrice: undefined,
+      splitCount: 1, // Force single order
       scaleType: tradingParams?.scaleType,
     };
 
@@ -63,10 +86,16 @@ const ButtonWrapper = ({ tradingParams }: ButtonWrapperProps) => {
     console.log(`   Base Size: ${baseOrderSize} BTC`);
     console.log(`   UI Position Size: ${tradingParams?.positionSize || 0}%`);
     console.log(`   Size Multiplier: ${sizeMultiplier}`);
-    console.log(`   Final Order Size: ${order.quantity} BTC (~$${(order.quantity * 100000).toFixed(2)})`);
+    console.log(`   Final Order Size: ${order.quantity} BTC (~$${(order.quantity * 120000).toFixed(2)})`); // Estimate at ~$120k BTC
     
-    const result = await executeOrder(order);
-    setStatusMessage(result.message);
+    try {
+      const result = await executeOrder(order);
+      console.log(`✅ ${side.toUpperCase()} order result:`, result);
+      setStatusMessage(result.message);
+    } catch (error) {
+      console.error(`❌ Error executing ${side.toUpperCase()} order:`, error);
+      setStatusMessage(`Error: ${error instanceof Error ? error.message : 'Unknown error occurred'}`);
+    }
     
     // Clear message after 5 seconds
     setTimeout(() => setStatusMessage(""), 5000);

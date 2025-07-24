@@ -47,9 +47,9 @@ function App() {
           </div>
         </div>
       </section>
-      </MultiAccountTradingProvider>
-    </TradingProvider>
-  )
+    </MultiAccountTradingProvider>
+  </TradingProvider>
+  );
 }
 
 export default App

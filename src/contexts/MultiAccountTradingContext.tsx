@@ -162,16 +162,33 @@ export const MultiAccountTradingProvider = ({ children }: { children: ReactNode 
     try {
       console.log(`🔄 Refreshing data for account ${accountId}`);
       
-      // Fetch account-specific data
-      const [positions, openOrders, tradeHistory] = await Promise.all([
+      // Fetch account-specific data including real account balance
+      const [positions, openOrders, tradeHistory, accountBalance] = await Promise.all([
         marketDataService.fetchPositions(account.publicKey),
         marketDataService.fetchOpenOrders(account.publicKey),
-        marketDataService.fetchTradeHistory(account.publicKey, 50)
+        marketDataService.fetchTradeHistory(account.publicKey, 50),
+        marketDataService.getAccountBalance({
+          accountId: account.accountId,
+          accountName: account.accountName,
+          publicKey: account.publicKey,
+          privateKey: account.privateKey,
+          balance: "0",
+          pnl: "0",
+          pair: account.pair || "BTC/USDT",
+          openOrdersCount: 0,
+          connectionStatus: "connected"
+        })
       ]);
 
       // Calculate account metrics
-      const balance = positions.reduce((total, pos) => total + (pos.size * pos.markPrice), 0).toFixed(2);
+      const balance = accountBalance.toFixed(2); // Use real account balance from clearing house
       const pnl = positions.reduce((total, pos) => total + pos.pnl, 0).toFixed(2);
+      
+      // Calculate effective leverage (total position value / account balance)
+      const totalPositionValue = positions.reduce((total, pos) => total + Math.abs(pos.size * pos.markPrice), 0);
+      const balanceNum = parseFloat(balance) || 1; // Avoid division by zero
+      const effectiveLeverage = totalPositionValue > 0 ? (totalPositionValue / balanceNum).toFixed(1) : "0";
+      const leverageDisplay = effectiveLeverage !== "0" ? `${effectiveLeverage}x` : "No Leverage";
 
       // Update account with fresh data
       updateAgentAccount(accountId, {
@@ -180,6 +197,7 @@ export const MultiAccountTradingProvider = ({ children }: { children: ReactNode 
         tradeHistory,
         balance: `$${balance}`,
         pnl: parseFloat(pnl) >= 0 ? `+$${pnl}` : `-$${Math.abs(parseFloat(pnl))}`,
+        leverage: leverageDisplay,
         openOrdersCount: openOrders.length
       });
 

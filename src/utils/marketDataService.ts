@@ -138,11 +138,16 @@ class MarketDataService {
 
       // Simple validation and mapping
       if (Array.isArray(prices) && meta?.universe) {
+        console.log('📊 Available symbols:', meta.universe.slice(0, 10).map((asset: { name?: string }) => asset?.name || 'unknown'));
         prices.forEach((priceStr, index) => {
           const asset = meta.universe[index];
           if (asset?.name && priceStr) {
             const price = parseFloat(priceStr);
             if (price > 0) {
+              // Log BTC-related symbols for debugging
+              if (asset.name.toLowerCase().includes('btc')) {
+                console.log(`🔍 Found BTC-related symbol: ${asset.name} = $${price}`);
+              }
               this.priceCache.set(asset.name, {
                 symbol: asset.name,
                 price,
@@ -155,10 +160,18 @@ class MarketDataService {
         });
       }
 
-      // Log BTC price for debugging
+      // Log BTC price for debugging and show first few symbols
+      console.log('🔍 First 5 cached symbols:', Array.from(this.priceCache.keys()).slice(0, 5));
       const btcPrice = this.priceCache.get('BTC');
       if (btcPrice) {
         console.log(`🔥 BTC Price: $${btcPrice.price.toLocaleString()}`);
+      } else {
+        console.log('❌ No BTC price found in cache');
+        // Try to find any BTC-related symbols
+        const btcSymbols = Array.from(this.priceCache.keys()).filter(key => 
+          key.toLowerCase().includes('btc')
+        );
+        console.log('🔍 BTC-related symbols found:', btcSymbols);
       }
 
       this.lastPriceUpdate = now;
