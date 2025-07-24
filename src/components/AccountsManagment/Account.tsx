@@ -2,7 +2,9 @@ import { useEffect, useRef, useState } from "react";
 import AnimateHeight from "react-animate-height";
 import { motion } from "framer-motion";
 import { useTrading } from "../../hooks/useTrading";
+import { useMultiAccountTrading } from "../../contexts/MultiAccountTradingContext";
 import type { AgentAccount } from "../../contexts/TradingContext";
+import type { MultiAgentAccount } from "../../contexts/MultiAccountTradingContext";
 import { verifyPrivateKeyToAddress } from "../../utils/hyperLiquidSigning";
 
 // Type definition for account data
@@ -43,6 +45,7 @@ const Account = ({ acc, id, getId, getName }: AccountProps) => {
   
   // Trading context to connect agent account for trading
   const { setAgentAccount } = useTrading();
+  const { addAgentAccount } = useMultiAccountTrading();
   
   const cardRef = useRef<HTMLDivElement | null>(null); // Ref to detect outside clicks
 
@@ -222,7 +225,29 @@ const Account = ({ acc, id, getId, getName }: AccountProps) => {
         console.log('Agent wallet connected successfully with Python-compatible signing');
         console.log('🔐 Signature verification should now work correctly with HyperLiquid');
         
-        // Set agent account for trading context
+        // Add to multi-account system
+        const multiAgentAccountData: MultiAgentAccount = {
+          accountId: acc.num,
+          accountName: `${acc.title} ${acc.num}`,
+          publicKey: publicKey.trim(),
+          privateKey: privateKey.trim(),
+          isActive: true,
+          connectionStatus: "connected",
+          balance: "0.00", // Will be updated later
+          pnl: "0.00", // Will be updated later
+          pair: masterPair || subscriberPair || "BTC/USDT",
+          leverage: "20x",
+          openOrdersCount: 0,
+          positions: [], // Empty initially
+          openOrders: [], // Empty initially
+          tradeHistory: [], // Empty initially
+        };
+        
+        // Add to multi-account context
+        addAgentAccount(multiAgentAccountData);
+        console.log('✅ Agent account added to multi-account system:', multiAgentAccountData.accountName);
+        
+        // Also set for backward compatibility with old trading context
         const agentAccountData: AgentAccount = {
           accountId: acc.num,
           accountName: `${acc.title} ${acc.num}`,
@@ -233,8 +258,7 @@ const Account = ({ acc, id, getId, getName }: AccountProps) => {
         };
         
         setAgentAccount(agentAccountData);
-        console.log('Agent account connected for trading:', agentAccountData.accountName);
-        console.log('Agent account ready for trade execution');
+        console.log('Agent account ready for trade execution (backward compatibility)');
         
         // Log selected trading pairs if any
         if (masterChecked && masterPair) {

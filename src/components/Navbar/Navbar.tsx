@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useTrading } from '../../hooks/useTrading';
+import { useMultiAccountTrading } from '../../contexts/MultiAccountTradingContext';
 import ConnectionModal from '../ConnectionModal/ConnectionModal';
 
 interface Props {
@@ -8,6 +9,7 @@ interface Props {
 
 const Navbar = ({ accNum }: Props) => {
   const { connectedAccount, setConnectedAccount, openOrders, positions } = useTrading();
+  const { getConnectedAccounts, getAccountCount } = useMultiAccountTrading();
   const [showConnectionModal, setShowConnectionModal] = useState(false);
 
   const handleDisconnect = () => {
@@ -18,6 +20,10 @@ const Navbar = ({ accNum }: Props) => {
 
   // Calculate total PnL from positions
   const totalPnL = positions.reduce((sum, pos) => sum + (pos.pnl || 0), 0);
+
+  // Get multi-account information
+  const connectedAgentAccounts = getConnectedAccounts();
+  const totalAccountCount = getAccountCount();
 
   return (
       <nav className="bg-[#252930] w-full">
@@ -68,6 +74,11 @@ const Navbar = ({ accNum }: Props) => {
                       {/* Master Account Info */}
                       <div>
                           <p className="text-base text-[#FBF9F9]">Master: <span className="font-bold text-white">{connectedAccount.accountName}</span></p>
+                      </div>
+
+                      {/* Agent Accounts Count */}
+                      <div>
+                          <p className="text-base text-[#FBF9F9]">Accounts: <span className="font-bold text-white">{connectedAgentAccounts.length}/{totalAccountCount}</span></p>
                       </div>
                     </>
                   ) : (

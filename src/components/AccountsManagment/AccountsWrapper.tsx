@@ -2,8 +2,7 @@ import { useEffect, useState } from "react";
 import Account from "./Account";
 import { AnimatePresence } from "framer-motion";
 import DeleteModal from "./DeleteModal/DeleteModal";
-import { useTrading } from "../../hooks/useTrading";
-import { fetchAccountData } from "../../utils/hyperLiquidAPI";
+import { useMultiAccountTrading } from "../../contexts/MultiAccountTradingContext";
 import './scrollbar.css';
 
 // Define structure for each account
@@ -36,8 +35,8 @@ const AccountsWrapper = ({ setAccNum, setModal }: Props) => {
   const [selectedMergedId, setSelectedMergedId] = useState<number | null>(null);
   const [selectedToDelete, setSelectedToDelete] = useState<number[]>([]);
 
-  // Get trading context to monitor agent account connections
-  const { agentAccount } = useTrading();
+  // Get multi-account trading context
+  const { agentAccounts, getConnectedAccounts } = useMultiAccountTrading();
 
   // Initial 10 account objects with default "N/A" and "Not Connected" values
   const [accounts, setAccounts] = useState<AccountInfo[]>(
@@ -59,68 +58,40 @@ const AccountsWrapper = ({ setAccNum, setModal }: Props) => {
     setAccNum(accounts.length);
   }, [accounts, setAccNum]);
 
-  // Update account data when agent account connects
+  // Update account data to reflect multi-account connections
   useEffect(() => {
-    const updateAccountData = async () => {
-      if (agentAccount && agentAccount.connectionStatus === "connected") {
-        console.log('🔄 Agent account connected, fetching real data for account:', agentAccount.accountName);
-        
-        try {
-          const accountData = await fetchAccountData(agentAccount.publicKey);
-          
-          // Update the specific account that matches the connected agent
-          setAccounts(prev => prev.map(acc => 
-            acc.num === agentAccount.accountId 
-              ? {
-                  ...acc,
-                  status: "ACTIVE",
-                  pair: "BTC/USDT", // Could be made dynamic based on trading activity
-                  leverage: "20x Leverage", // Could be fetched from account settings
-                  balance: accountData.balance,
-                  pnl: accountData.pnl,
-                  openOrdersCount: accountData.openOrdersCount,
-                }
-              : acc
-          ));
-          
-          console.log('✅ Account data updated successfully for account', agentAccount.accountId);
-        } catch (error) {
-          console.error('❌ Failed to fetch account data:', error);
-          
-          // Update account status to show connection but with error state
-          setAccounts(prev => prev.map(acc => 
-            acc.num === agentAccount.accountId 
-              ? {
-                  ...acc,
-                  status: "ERROR",
-                  pair: "N/A",
-                  leverage: "N/A",
-                  balance: "Error",
-                  pnl: "Error",
-                }
-              : acc
-          ));
-        }
+    const connectedAgentAccounts = getConnectedAccounts();
+    
+    // Update accounts state to reflect all connected multi-accounts
+    setAccounts(prev => prev.map(acc => {
+      // Check if this account ID has a connected agent in the multi-account system
+      const connectedAgent = connectedAgentAccounts.find(agent => agent.accountId === acc.num);
+      
+      if (connectedAgent) {
+        return {
+          ...acc,
+          status: "ACTIVE",
+          pair: "BTC/USDT", // Could be made dynamic
+          leverage: "20x Leverage", // Could be fetched from account settings
+          balance: "$1,000.00", // Will be updated with real data
+          pnl: "+$50.00", // Will be updated with real data
+          openOrdersCount: 0,
+        };
+      } else {
+        return {
+          ...acc,
+          status: "Not Connected",
+          pair: "N/A",
+          leverage: "N/A",
+          balance: "N/A",
+          pnl: "N/A",
+          openOrdersCount: 0,
+        };
       }
-    };
-
-    updateAccountData();
-  }, [agentAccount]);
-
-  // Reset account data when agent disconnects
-  useEffect(() => {
-    if (!agentAccount) {
-      // Reset all accounts to default state when no agent is connected
-      setAccounts(prev => prev.map(acc => ({
-        ...acc,
-        status: "Not Connected",
-        pair: "N/A",
-        leverage: "N/A", 
-        balance: "N/A",
-        pnl: "N/A",
-      })));
-    }
-  }, [agentAccount]);
+    }));
+    
+    console.log(`📊 Multi-account status: ${connectedAgentAccounts.length} connected accounts`);
+  }, [agentAccounts, getConnectedAccounts]);
 
   // Toggle selection for individual account
   const handleToggleSelect = (id: number) => {
