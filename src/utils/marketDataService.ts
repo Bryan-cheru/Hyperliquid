@@ -9,6 +9,58 @@ export interface MarketPrice {
   lastUpdate: number;
 }
 
+// API Response interfaces
+interface HyperLiquidFill {
+  tif?: string;
+  dir?: string;
+  liquidation?: boolean;
+  startPosition?: number;
+  sz?: number | string;
+  px?: number | string;
+  side?: string;
+  coin?: string;
+  time?: number;
+  oid?: number;
+  tid?: number;
+  closed?: boolean;
+  hash?: string;
+  crossed?: boolean;
+  fee?: string;
+}
+
+interface HyperLiquidOrder {
+  coin?: string;
+  side?: string;
+  sz?: number | string;
+  limitPx?: number | string;
+  oid?: number;
+  timestamp?: number;
+  origSz?: number | string;
+  triggerCondition?: string;
+  triggerPx?: number;
+  tif?: string; // Time in force
+  dir?: string; // Direction
+  children?: Array<{
+    coin?: string;
+    side?: string;
+    sz?: number | string;
+    limitPx?: number | string;
+  }>;
+}
+
+interface HyperLiquidPosition {
+  position?: {
+    coin?: string;
+    szi?: string;
+    entryPx?: string;
+    positionValue?: string;
+    unrealizedPnl?: string;
+    marginUsed?: string;
+    returnOnEquity?: string;
+  };
+  type?: 'oneWay';
+}
+
 export interface TradeHistoryItem {
   id: string;
   timestamp: number;
@@ -53,70 +105,68 @@ class MarketDataService {
   private lastPriceUpdate: number = 0;
   private readonly PRICE_CACHE_MS = 5000; // 5 seconds cache
 
-  // Fetch current market prices for all assets
+  // Fetch current market prices for all assets - SIMPLE VERSION
   async fetchMarketPrices(): Promise<Map<string, MarketPrice>> {
     const now = Date.now();
     
+    // Use cache if fresh
     if (now - this.lastPriceUpdate < this.PRICE_CACHE_MS && this.priceCache.size > 0) {
       return this.priceCache;
     }
 
     try {
-      const response = await fetch('https://api.hyperliquid.xyz/info', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ type: "allMids" })
-      });
+      // Get prices and metadata in parallel
+      const [pricesResponse, metaResponse] = await Promise.all([
+        fetch('https://api.hyperliquid.xyz/info', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ type: "allMids" })
+        }),
+        fetch('https://api.hyperliquid.xyz/info', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ type: "meta" })
+        })
+      ]);
 
-      const prices = await response.json();
-      
-      // Get asset metadata for symbol names
-      const metaResponse = await fetch('https://api.hyperliquid.xyz/info', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ type: "meta" })
-      });
+      const [prices, meta] = await Promise.all([
+        pricesResponse.json(),
+        metaResponse.json()
+      ]);
 
-      const meta = await metaResponse.json();
-      
-      // Clear cache and update with fresh data
       this.priceCache.clear();
-      
-      // Handle different response formats from Hyperliquid API
-      if (Array.isArray(prices) && Array.isArray(meta?.universe)) {
-        prices.forEach((price: string, index: number) => {
-          if (meta.universe[index] && price) {
-            const symbol = meta.universe[index].name;
-            this.priceCache.set(symbol, {
-              symbol,
-              price: parseFloat(price),
-              change24h: 0, // TODO: Get 24h change data
-              volume24h: 0, // TODO: Get volume data
-              lastUpdate: now
-            });
+
+      // Simple validation and mapping
+      if (Array.isArray(prices) && meta?.universe) {
+        prices.forEach((priceStr, index) => {
+          const asset = meta.universe[index];
+          if (asset?.name && priceStr) {
+            const price = parseFloat(priceStr);
+            if (price > 0) {
+              this.priceCache.set(asset.name, {
+                symbol: asset.name,
+                price,
+                change24h: 0,
+                volume24h: 0,
+                lastUpdate: now
+              });
+            }
           }
         });
-      } else {
-        // Fallback: set some default prices if API format is unexpected
-        console.warn('Unexpected API response format for market prices:', prices);
-        if (meta?.universe && Array.isArray(meta.universe)) {
-          meta.universe.forEach((asset: any, index: number) => {
-            this.priceCache.set(asset.name, {
-              symbol: asset.name,
-              price: asset.name === 'BTC' ? 97000 : 3500, // Default fallback prices
-              change24h: 0,
-              volume24h: 0,
-              lastUpdate: now
-            });
-          });
-        }
+      }
+
+      // Log BTC price for debugging
+      const btcPrice = this.priceCache.get('BTC');
+      if (btcPrice) {
+        console.log(`🔥 BTC Price: $${btcPrice.price.toLocaleString()}`);
       }
 
       this.lastPriceUpdate = now;
       return this.priceCache;
       
     } catch (error) {
-      console.error('Error fetching market prices:', error);
+      console.error('❌ Price fetch failed:', error);
+      // Return existing cache or empty map
       return this.priceCache;
     }
   }
@@ -169,7 +219,7 @@ class MarketDataService {
       }
       
       return allFills
-        .map((fill: any, index: number) => {
+        .map((fill: HyperLiquidFill, index: number) => {
           // Improved order type inference
           let orderType: 'market' | 'limit' = 'limit'; // Default to limit
           
@@ -191,15 +241,15 @@ class MarketDataService {
             timestamp: fill.time || Date.now(),
             symbol: fill.coin || 'Unknown',
             side: fill.side === 'A' ? 'buy' : 'sell',
-            quantity: parseFloat(fill.sz || '0'),
-            price: parseFloat(fill.px || '0'),
-            value: parseFloat(fill.sz || '0') * parseFloat(fill.px || '0'),
+            quantity: parseFloat(String(fill.sz || '0')),
+            price: parseFloat(String(fill.px || '0')),
+            value: parseFloat(String(fill.sz || '0')) * parseFloat(String(fill.px || '0')),
             status: 'filled',
             orderId: fill.oid?.toString() || fill.tid?.toString() || `${index}`,
             type: orderType
           };
         })
-        .sort((a: any, b: any) => b.timestamp - a.timestamp)
+        .sort((a: TradeHistoryItem, b: TradeHistoryItem) => b.timestamp - a.timestamp)
         .slice(0, limit); // Limit results to prevent UI issues
       
     } catch (error) {
@@ -208,7 +258,7 @@ class MarketDataService {
     }
   }
 
-  // Fetch open orders for a wallet
+  // Fetch open orders for a wallet - SIMPLE VERSION
   async fetchOpenOrders(walletAddress: string): Promise<OpenOrder[]> {
     try {
       const response = await fetch('https://api.hyperliquid.xyz/info', {
@@ -222,15 +272,15 @@ class MarketDataService {
 
       const orders = await response.json();
       
-      return orders.map((order: any) => ({
+      return orders.map((order: HyperLiquidOrder) => ({
         id: order.oid?.toString() || Math.random().toString(),
         symbol: order.coin || 'Unknown',
         side: order.side === 'A' ? 'buy' : 'sell',
-        type: order.orderType || 'limit',
-        quantity: parseFloat(order.sz || '0'),
-        price: parseFloat(order.limitPx || '0'),
-        filled: parseFloat(order.origSz || '0') - parseFloat(order.sz || '0'),
-        remaining: parseFloat(order.sz || '0'),
+        type: 'limit', // Simple: assume all are limit orders
+        quantity: Number(order.sz || 0),
+        price: Number(order.limitPx || 0),
+        filled: Number(order.origSz || 0) - Number(order.sz || 0),
+        remaining: Number(order.sz || 0),
         status: 'open',
         timestamp: order.timestamp || Date.now()
       }));
@@ -257,22 +307,22 @@ class MarketDataService {
       const positions = data.assetPositions || [];
       
       return positions
-        .filter((pos: any) => parseFloat(pos.position.szi || '0') !== 0)
-        .map((pos: any) => {
-          const size = parseFloat(pos.position.szi || '0');
-          const entryPrice = parseFloat(pos.position.entryPx || '0');
-          const unrealizedPnl = parseFloat(pos.position.unrealizedPnl || '0');
+        .filter((pos: HyperLiquidPosition) => parseFloat(pos.position?.szi || '0') !== 0)
+        .map((pos: HyperLiquidPosition) => {
+          const size = parseFloat(pos.position?.szi || '0');
+          const entryPrice = parseFloat(pos.position?.entryPx || '0');
+          const unrealizedPnl = parseFloat(pos.position?.unrealizedPnl || '0');
           
           return {
-            symbol: pos.position.coin || 'Unknown',
+            symbol: pos.position?.coin || 'Unknown',
             side: size > 0 ? 'long' : 'short',
             size: Math.abs(size),
             entryPrice,
             markPrice: entryPrice, // TODO: Get actual mark price
             pnl: unrealizedPnl,
             pnlPercentage: entryPrice > 0 ? (unrealizedPnl / (entryPrice * Math.abs(size))) * 100 : 0,
-            leverage: parseFloat(pos.position.leverage || '1'),
-            margin: parseFloat(pos.position.marginUsed || '0'),
+            leverage: 1, // Simple fallback
+            margin: parseFloat(pos.position?.marginUsed || '0'),
             timestamp: Date.now()
           };
         });
@@ -284,7 +334,7 @@ class MarketDataService {
   }
 
   // Cancel an order (placeholder for future implementation)
-  async cancelOrder(orderId: string, walletAddress: string, privateKey: string): Promise<boolean> {
+  async cancelOrder(orderId: string, walletAddress: string): Promise<boolean> {
     try {
       // TODO: Implement order cancellation
       console.log('Cancel order not yet implemented:', { orderId, walletAddress });

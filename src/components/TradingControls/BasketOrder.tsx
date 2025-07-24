@@ -144,38 +144,55 @@ const BasketOrder: React.FC<BasketOrderProps> = ({ clicked, setClicked }) => {
     }
   };
 
-  if (!clicked) return null;
-
   return (
-    <div className="border-t border-[#373A45] pt-4">
-      <div className="flex flex-col gap-5">
-        {/* Toggle Checkbox and Heading */}
-        <div className="flex gap-3 items-center -mb-2">
-          <label className="relative cursor-pointer flex">
-            <input
-              type="checkbox"
-              data-testid="basket-orders-toggle"
-              onChange={() => setClicked(prev => !prev)}
-              checked={clicked}
-              className="cursor-pointer peer appearance-none h-[22px] w-[22px] shrink-0 rounded-xs border-2 border-[#787b7f] bg-transparent checked:bg-blue-500 checked:border-blue-500"
-            />
-            <svg
-              className="absolute left-1 top-1 h-4 w-4 text-white pointer-events-none opacity-0 peer-checked:opacity-100"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="3"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <polyline points="20 6 9 17 4 12" />
-            </svg>
-          </label>
-          <h1 className="text-xl font-medium text-white">Basket Orders</h1>
+    <div className="border-t border-[#373A45] pt-4 mt-2">
+      <div className="flex flex-col gap-3">
+        {/* Compact Toggle Section */}
+        <div className="bg-[#1a1e2a] rounded-md p-3 border border-[#373A45] hover:border-[#F0B90B] transition-colors">
+          <div className="flex gap-3 items-center">
+            <label className="relative cursor-pointer flex items-center">
+              <input
+                type="checkbox"
+                data-testid="basket-orders-toggle"
+                onChange={() => setClicked(prev => !prev)}
+                checked={clicked}
+                className="cursor-pointer peer appearance-none h-[18px] w-[18px] shrink-0 rounded border-2 border-[#787b7f] bg-transparent checked:bg-[#F0B90B] checked:border-[#F0B90B] transition-all duration-200"
+              />
+              <svg
+                className="absolute left-0.5 top-0.5 h-3 w-3 text-black pointer-events-none opacity-0 peer-checked:opacity-100 transition-opacity duration-200"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="3"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <polyline points="20 6 9 17 4 12" />
+              </svg>
+            </label>
+            <div className="flex items-center gap-2 flex-1">
+              <span className="text-lg">🧺</span>
+              <h3 className="text-md font-medium text-white">Basket Orders</h3>
+              {clicked && <span className="text-green-400 text-xs">✓</span>}
+            </div>
+            {!clicked && (
+              <span className="text-[#F0B90B] text-xs bg-[#F0B90B]/10 px-2 py-1 rounded">
+                Enable
+              </span>
+            )}
+          </div>
+          
+          {!clicked && (
+            <div className="mt-2 text-xs text-gray-400 border-l-2 border-[#F0B90B] pl-2">
+              Multi-order execution with smart tracking
+            </div>
+          )}
         </div>
 
-        {/* Tab Navigation */}
-        <div className="flex gap-2 border-b border-[#373A45] pb-2">
+        {clicked && (
+          <>
+            {/* Tab Navigation */}
+            <div className="flex gap-2 border-b border-[#373A45] pb-2">
           <button
             data-testid="create-basket-tab"
             onClick={() => setActiveTab('create')}
@@ -518,6 +535,8 @@ const BasketOrder: React.FC<BasketOrderProps> = ({ clicked, setClicked }) => {
               ))
             )}
           </div>
+        )}
+          </>
         )}
       </div>
     </div>

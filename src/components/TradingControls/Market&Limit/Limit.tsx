@@ -5,6 +5,7 @@ import LimitChaser from "../LimitChaser";
 import { LimitOrder } from "../LimitOrder";
 import Profits from "../Profits";
 import Leverage from "../Leverage/Leverage";
+import BasketOrder from "../BasketOrder";
 import { type TradingParams } from "./Market";
 
 const Limit = () => {
@@ -14,6 +15,7 @@ const Limit = () => {
     const [value2, setValue2] = useState<number>(0);
     const [clicked, setClicked] = useState<boolean>(false);
     const [clickedSplit, setClickedSplit] = useState<boolean>(false);
+    const [clickedBasket, setClickedBasket] = useState<boolean>(false);
     const [limitPrice, setLimitPrice] = useState<number>(97000); // Initialize with default BTC price
 
     // Handle price change from LimitOrder component
@@ -161,6 +163,9 @@ const Limit = () => {
                       <span>Upper band</span>
                   </div>
               </div>
+              
+              <BasketOrder clicked={clickedBasket} setClicked={setClickedBasket} />
+              
               <LimitChaser setClicked={setClicked} clicked={clicked} />
               <ButtonWrapper tradingParams={tradingParams} />
           </div>
