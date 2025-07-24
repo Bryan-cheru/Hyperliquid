@@ -562,16 +562,27 @@ export const TradingProvider = ({ children }: { children: ReactNode }) => {
         console.log(`   Order price: $${parseFloat(orderPrice).toLocaleString()} (${order.side === "buy" ? "above" : "below"} market)`);
         
       } else {
-        // LIMIT ORDERS: Use exact specified price
+        // LIMIT ORDERS: Use exact specified price or calculate reasonable default
         console.log(`🎯 Processing LIMIT ${order.side.toUpperCase()} order`);
         
         if (order.price && order.price > 0) {
           orderPrice = Math.round(order.price).toString();
+          console.log(`   Using specified limit price: $${orderPrice}`);
         } else {
-          return {
-            success: false,
-            message: `Limit orders require a specific price. Current market price is $${currentPrice.toLocaleString()}`
-          };
+          // No price specified - calculate reasonable limit price based on market
+          if (currentPrice <= 0) {
+            currentPrice = 120000; // Fallback BTC price
+            console.log(`🔄 Using fallback BTC price for limit calculation: $${currentPrice.toLocaleString()}`);
+          }
+          
+          // Set limit price slightly off market for better execution probability
+          if (order.side === "buy") {
+            orderPrice = Math.round(currentPrice * 0.99).toString(); // 1% below market for buy
+            console.log(`   Calculated buy limit price: $${orderPrice} (1% below market)`);
+          } else {
+            orderPrice = Math.round(currentPrice * 1.01).toString(); // 1% above market for sell
+            console.log(`   Calculated sell limit price: $${orderPrice} (1% above market)`);
+          }
         }
         
         // Use GTC (Good Till Canceled) for limit orders
@@ -606,11 +617,34 @@ export const TradingProvider = ({ children }: { children: ReactNode }) => {
         }
       }
 
-      // Validate quantity
+      // Validate quantity - HyperLiquid minimum order sizes
       if (isNaN(order.quantity) || order.quantity <= 0) {
         return {
           success: false,
           message: `Invalid quantity: ${order.quantity}. Quantity must be a positive number.`
+        };
+      }
+
+      // Check HyperLiquid minimum order size requirements
+      const minimumOrderSizes: { [key: string]: number } = {
+        'BTC': 0.0001,   // Minimum 0.0001 BTC (~$12-15)
+        'ETH': 0.001,    // Minimum 0.001 ETH (~$3-5)
+        'SOL': 0.1,      // Minimum 0.1 SOL (~$15-25)
+        'ARB': 1,        // Minimum 1 ARB
+        'MATIC': 1,      // Minimum 1 MATIC
+        'AVAX': 0.01,    // Minimum 0.01 AVAX
+        'DOGE': 10,      // Minimum 10 DOGE
+        'default': 0.001 // Default minimum
+      };
+
+      const minimumSize = minimumOrderSizes[assetSymbol] || minimumOrderSizes['default'];
+      if (order.quantity < minimumSize) {
+        return {
+          success: false,
+          message: `❌ Order below minimum size!\n` +
+            `Minimum for ${assetSymbol}: ${minimumSize}\n` +
+            `Your order: ${order.quantity}\n` +
+            `Please increase order size to at least ${minimumSize} ${assetSymbol}`
         };
       }
 

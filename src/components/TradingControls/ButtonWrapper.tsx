@@ -59,18 +59,58 @@ const ButtonWrapper = ({ tradingParams }: ButtonWrapperProps) => {
     console.log(`🎯 Display pair: ${displayPair} -> API symbol: ${apiSymbol}`);
 
     // Use REAL trading parameters from UI inputs
-    // Adjust order size to fit $20 account - use much smaller BTC amount
-    const baseOrderSize = 0.0001; // Very small: 0.0001 BTC (~$10-12) to fit in $20 account
-    const sizeMultiplier = tradingParams ? Math.max(tradingParams.positionSize / 100, 0.1) : 1; // Minimum 10% of base size
+    // Get user-specified quantity or calculate from position size as fallback
+    let orderQuantity: number;
+    
+    if (tradingParams?.quantity && tradingParams.quantity > 0) {
+      // Use user-specified quantity directly
+      orderQuantity = tradingParams.quantity;
+      console.log(`✅ Using user-specified quantity: ${orderQuantity} ${apiSymbol}`);
+    } else {
+      // Fallback: Calculate from position size percentage (legacy behavior)
+      const minimumOrderSizes: { [key: string]: number } = {
+        'BTC': 0.0001,   // Minimum 0.0001 BTC (~$12-15) 
+        'ETH': 0.001,    // Minimum 0.001 ETH (~$3-5)
+        'SOL': 0.1,      // Minimum 0.1 SOL (~$15-25)
+        'ARB': 1,        // Minimum 1 ARB
+        'MATIC': 1,      // Minimum 1 MATIC
+        'AVAX': 0.01,    // Minimum 0.01 AVAX
+        'DOGE': 10,      // Minimum 10 DOGE
+        'default': 0.001 // Default minimum
+      };
+      
+      const baseOrderSize = minimumOrderSizes[apiSymbol] || minimumOrderSizes['default'];
+      const sizeMultiplier = tradingParams ? Math.max(tradingParams.positionSize / 100, 1) : 1;
+      orderQuantity = baseOrderSize * sizeMultiplier;
+      console.log(`📊 Calculated from position size: ${tradingParams?.positionSize}% = ${orderQuantity} ${apiSymbol}`);
+    }
+    
+    // Validate minimum order size
+    const minimumOrderSizes: { [key: string]: number } = {
+      'BTC': 0.0001,   // Minimum 0.0001 BTC 
+      'ETH': 0.001,    // Minimum 0.001 ETH
+      'SOL': 0.1,      // Minimum 0.1 SOL
+      'ARB': 1,        // Minimum 1 ARB
+      'MATIC': 1,      // Minimum 1 MATIC
+      'AVAX': 0.01,    // Minimum 0.01 AVAX
+      'DOGE': 10,      // Minimum 10 DOGE
+      'default': 0.001 // Default minimum
+    };
+    
+    const minimumSize = minimumOrderSizes[apiSymbol] || minimumOrderSizes['default'];
+    if (orderQuantity < minimumSize) {
+      setStatusMessage(`❌ Order below minimum size! Minimum for ${apiSymbol}: ${minimumSize}, Your order: ${orderQuantity}`);
+      return;
+    }
     
     const order: TradingOrder = {
       symbol: apiSymbol,
       side,
-      orderType: "market", // Force market orders to avoid price calculation issues
-      quantity: baseOrderSize * sizeMultiplier, // Ensure minimum viable order size
+      orderType: tradingParams?.orderType === "Market" ? "market" : "limit", // Respect UI selection
+      quantity: orderQuantity, // Use calculated order quantity from user input or position size
       leverage: tradingParams?.leverage || 20,
-      price: undefined, // No price needed for market orders
-      stopPrice: undefined, // No stop price for market orders
+      price: tradingParams?.orderType === "Market" ? undefined : tradingParams?.triggerPrice, // Use trigger price for limit orders
+      stopPrice: tradingParams?.stopPrice, 
       stopLoss: tradingParams?.stopLoss ? tradingParams.stopLoss / 100 : undefined, // Convert percentage
       // DISABLE automatic order splitting for simple trades
       orderSplit: false, // Force disable order splitting
@@ -80,13 +120,17 @@ const ButtonWrapper = ({ tradingParams }: ButtonWrapperProps) => {
       scaleType: tradingParams?.scaleType,
     };
 
+    console.log(`🎯 ORDER TYPE SELECTION DEBUG:`);
+    console.log(`   UI Order Type: "${tradingParams?.orderType}"`);
+    console.log(`   Is Market?: ${tradingParams?.orderType === "Market"}`);
+    console.log(`   Final Order Type: "${order.orderType}"`);
+    console.log(`   Price for Limit: ${order.price}`);
     console.log(`🚀 Executing ${side.toUpperCase()} order with UI parameters:`, order);
     console.log(`📊 Trading Params from UI:`, tradingParams);
     console.log(`🧮 Order Size Calculation:`);
-    console.log(`   Base Size: ${baseOrderSize} BTC`);
+    console.log(`   User Quantity: ${tradingParams?.quantity || 'not specified'}`);
     console.log(`   UI Position Size: ${tradingParams?.positionSize || 0}%`);
-    console.log(`   Size Multiplier: ${sizeMultiplier}`);
-    console.log(`   Final Order Size: ${order.quantity} BTC (~$${(order.quantity * 120000).toFixed(2)})`); // Estimate at ~$120k BTC
+    console.log(`   Final Order Size: ${order.quantity} ${apiSymbol} (~$${(order.quantity * 120000).toFixed(2)})`); // Estimate at ~$120k BTC
     
     try {
       const result = await executeOrder(order);

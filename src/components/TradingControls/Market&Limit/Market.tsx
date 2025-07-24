@@ -11,6 +11,7 @@ export type Type = "Limit" | "Market";
 export interface TradingParams {
   leverage: number;
   positionSize: number;
+  quantity?: number; // Add explicit quantity field
   stopLoss: number;
   orderType: Type;
   triggerPrice?: number;
@@ -33,6 +34,7 @@ const Market = ({ selectedOrderType = "Market" }: MarketProps) => {
     const [value, setValue] = useState<number[]>([0]);
     const [value3, setValue3] = useState<number[]>([0]);
     const [value4, setValue4] = useState(0); // Changed to 0 for Lower
+    const [quantity, setQuantity] = useState<number>(0.001); // Add quantity state with default minimum
     
     const [clickedSplit, setClickedSplit] = useState<boolean>(false);
     const [clickedBasket, setClickedBasket] = useState<boolean>(false);
@@ -50,6 +52,7 @@ const Market = ({ selectedOrderType = "Market" }: MarketProps) => {
     const tradingParams: TradingParams = {
       leverage: value2,
       positionSize: value3[0] ?? 0,
+      quantity: quantity, // Include user-specified quantity
       stopLoss: value[0] ?? 0,
       orderType: orderType,
       triggerPrice: orderType === "Limit" ? triggerPrice : undefined,
@@ -95,6 +98,25 @@ const Market = ({ selectedOrderType = "Market" }: MarketProps) => {
                     <div className="flex justify-between text-sm text-white mt-1">
                         <span>0x</span>
                         <span>100x</span>
+                    </div>
+                </div>
+                
+                {/* Quantity Input Field */}
+                <div className="flex flex-col gap-2">
+                    <h2 className="text-white font-medium">Order Quantity</h2>
+                    <div className="flex flex-col gap-1">
+                        <input 
+                            type="number" 
+                            step="0.00001"
+                            min="0"
+                            placeholder="Enter quantity (e.g., 0.001 BTC)" 
+                            className="inputs text-white" 
+                            value={quantity || ''}
+                            onChange={(e) => setQuantity(parseFloat(e.target.value) || 0)}
+                        />
+                        <p className="text-xs text-gray-400">
+                            Minimum: BTC=0.0001, ETH=0.001, SOL=0.1
+                        </p>
                     </div>
                 </div>
             </div>
