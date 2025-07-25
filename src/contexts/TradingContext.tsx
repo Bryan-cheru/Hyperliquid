@@ -815,6 +815,17 @@ export const TradingProvider = ({ children }: { children: ReactNode }) => {
         if (result.status === "ok") {
           // Extract order ID from response structure
           const orderData = result.response?.data;
+          
+          // Check for order errors first
+          if (orderData?.statuses?.[0]?.error) {
+            const errorMessage = orderData.statuses[0].error;
+            console.error('❌ HyperLiquid Order Error:', errorMessage);
+            return {
+              success: false,
+              message: `Order rejected: ${errorMessage}`
+            };
+          }
+          
           let orderId = `HL_${assetIndex}_${nonce}`;
           let orderStatus = "submitted";
           

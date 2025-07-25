@@ -108,14 +108,17 @@ class MarketDataService {
   async fetchMarketPrices(): Promise<Map<string, MarketPrice>> {
     const now = Date.now();
     
-    // Use cache if fresh (reduce cache time for more frequent updates)
-    if (now - this.lastPriceUpdate < 2000 && this.priceCache.size > 0) {
+    // Use cache if fresh (increase cache time to 10 seconds to reduce API calls)
+    if (now - this.lastPriceUpdate < 10000 && this.priceCache.size > 0) {
       console.log('🔄 Using cached prices, cache size:', this.priceCache.size);
       return this.priceCache;
     }
 
     try {
       console.log('🌐 Fetching fresh market prices from Hyperliquid...');
+      
+      // Add small delay to prevent rate limiting
+      await new Promise(resolve => setTimeout(resolve, 100));
       
       // EXPERIMENTAL: Try different API endpoints to get correct market prices
       console.log('🔍 Testing multiple API endpoints for correct market data...');
@@ -499,6 +502,9 @@ class MarketDataService {
   // Fetch positions for a wallet
   async fetchPositions(walletAddress: string): Promise<Position[]> {
     try {
+      // Add delay to prevent rate limiting
+      await new Promise(resolve => setTimeout(resolve, 200));
+      
       const response = await fetch('https://api.hyperliquid.xyz/info', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -508,7 +514,17 @@ class MarketDataService {
         })
       });
 
+      if (!response.ok) {
+        console.error(`Failed to fetch positions: ${response.status} ${response.statusText}`);
+        return [];
+      }
+
       const data = await response.json();
+      if (!data || !data.assetPositions) {
+        console.warn('No position data received from API');
+        return [];
+      }
+      
       const positions = data.assetPositions || [];
       
       return positions
