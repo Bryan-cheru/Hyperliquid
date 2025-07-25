@@ -122,6 +122,7 @@ const ButtonWrapper = ({ tradingParams }: ButtonWrapperProps) => {
       quantity: orderQuantity, // Use calculated order quantity from user input or position size
       leverage: tradingParams?.leverage || 20,
       price: tradingParams?.orderType === "Market" ? undefined : tradingParams?.triggerPrice, // Use trigger price for limit orders
+      triggerPrice: tradingParams?.triggerPrice, // Set trigger price separately for HyperLiquid compatibility
       stopPrice: tradingParams?.stopPrice, 
       stopLoss: tradingParams?.stopLoss ? tradingParams.stopLoss / 100 : undefined, // Convert percentage
       // DISABLE automatic order splitting for simple trades
