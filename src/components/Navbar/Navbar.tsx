@@ -78,7 +78,7 @@ const Navbar = ({ accNum }: Props) => {
 
                       {/* Agent Accounts Count */}
                       <div>
-                          <p className="text-base text-[#FBF9F9]">Accounts: <span className="font-bold text-white">{connectedAgentAccounts.length}/{totalAccountCount}</span></p>
+                          <p className="text-base text-[#FBF9F9]">Accounts: <span className="font-bold text-white">{connectedAgentAccounts.length}/10</span></p>
                       </div>
                     </>
                   ) : (

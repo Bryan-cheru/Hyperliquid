@@ -46,7 +46,7 @@ const Limit = () => {
         positionSize: value,
         stopLoss: 0, // This would come from the stop loss slider
         orderType: "Limit",
-        triggerPrice: limitPrice, // This is the key - pass the limit price
+        triggerPrice: limitPrice, // ⚠️ POTENTIAL BUG: For simple limit orders, the limit price IS the trigger price - but this might conflict with Market component's trigger price
         stopPrice: undefined,
         orderSplit: clickedSplit,
         minPrice: undefined,
@@ -58,6 +58,7 @@ const Limit = () => {
     // Debug logging
     console.log('🔍 Limit Component - Trading Params:', tradingParams);
     console.log('🔍 Limit Component - limitPrice:', limitPrice);
+    console.log('🔍 Limit Component - triggerPrice in params:', tradingParams.triggerPrice);
     console.log('🔍 Limit Component - current BTC price from context:', getPrice('BTC'));
 
   return (

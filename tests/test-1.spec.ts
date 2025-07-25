@@ -2,7 +2,7 @@ import { test } from '@playwright/test';
 
 test('test', async ({ page }) => {
   test.setTimeout(240000); // 4 minutes timeout
-  await page.goto('http://localhost:5176/');
+  await page.goto('http://localhost:5177/');
   await page.getByRole('button', { name: 'Connect Master Account' }).click();
   await page.getByRole('textbox', { name: 'e.g., Main Trading Account' }).click();
   await page.getByRole('textbox', { name: 'e.g., Main Trading Account' }).fill('master');
@@ -22,13 +22,13 @@ test('test', async ({ page }) => {
   await page.getByRole('button', { name: 'Close', exact: true }).click();
   await page.locator('.bg-\\[\\#E5E5E5\\]').first().click();
   await page.getByPlaceholder('Enter price', { exact: true }).click();
-  await page.getByPlaceholder('Enter price', { exact: true }).fill('4000');
+  await page.getByPlaceholder('Enter price', { exact: true }).fill('110000');
   await page.locator('.flex.justify-between > .relative.flex').click();
   await page.locator('.relative.flex.w-full.items-center.h-5').click();
   await page.locator('div').filter({ hasText: /^Trigger Price$/ }).getByPlaceholder('Enter Price').click();
-  await page.locator('div').filter({ hasText: /^Trigger Price$/ }).getByPlaceholder('Enter Price').fill('400');
+  await page.locator('div').filter({ hasText: /^Trigger Price$/ }).getByPlaceholder('Enter Price').fill('110000');
   await page.locator('div').filter({ hasText: /^Stop Price$/ }).getByPlaceholder('Enter Price').click();
-  await page.locator('div').filter({ hasText: /^Stop Price$/ }).getByPlaceholder('Enter Price').fill('100');
+  await page.locator('div').filter({ hasText: /^Stop Price$/ }).getByPlaceholder('Enter Price').fill('105000');
   await page.getByRole('button', { name: 'LONG' }).click();
   await page.getByRole('button', { name: 'SHORT' }).click();
 });

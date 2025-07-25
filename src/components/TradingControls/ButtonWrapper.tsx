@@ -15,6 +15,7 @@ const ButtonWrapper = ({ tradingParams }: ButtonWrapperProps) => {
   console.log('ButtonWrapper - agentAccount:', agentAccount);
   console.log('ButtonWrapper - connectedAccount:', connectedAccount);
   console.log('🔍 ButtonWrapper - tradingParams received:', tradingParams);
+  console.log('🔍 ButtonWrapper - triggerPrice from params:', tradingParams?.triggerPrice);
   console.log('🔍 ButtonWrapper - orderType detection:', tradingParams?.orderType === "Market" ? "MARKET" : "LIMIT");
 
   // Handle Long/Short trading using real UI parameters
