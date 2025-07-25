@@ -1,0 +1,47 @@
+HYPERLIQUID SSH DEPLOYMENT COMMANDS
+===================================
+
+STEP 1: Open TWO terminal/command prompt windows
+- Window 1: For uploading files (stay on local machine)
+- Window 2: For SSH connection to server
+
+STEP 2: In Window 1 (Local Machine) - Upload Files
+CD to your project directory first:
+cd C:\Users\Julimore\Desktop\harry\Hyperliquid
+
+Then upload files:
+scp hyperliquid-deployment.zip root@155.138.229.220:/tmp/
+scp clean-deploy.sh root@155.138.229.220:/tmp/
+
+STEP 3: In Window 2 (SSH to Server) - Connect
+ssh root@155.138.229.220
+
+STEP 4: On Server - Stop Old Application
+pm2 stop all
+pm2 delete hyperliquid-app
+pm2 list
+
+STEP 5: On Server - Clean Old Files
+rm -rf /var/www/hyperliquid
+rm -rf /tmp/hyperliquid-*
+rm -rf /tmp/dist
+rm -rf /tmp/deployment
+ls -la /var/www/
+
+STEP 6: On Server - Deploy New Files
+cd /tmp
+chmod +x clean-deploy.sh
+bash clean-deploy.sh
+
+STEP 7: Verify Deployment
+pm2 list
+curl -I http://localhost:3000
+curl -I http://155.138.229.220
+
+STEP 8: Test in Browser
+Open: http://155.138.229.220
+
+EXPECTED RESULT:
+✅ Fresh Hyperliquid app with Order Split + Limit Chaser
+✅ Ultra-safe 0.5% position, 0.8% stop loss configuration
+✅ Zero conflicts with old build

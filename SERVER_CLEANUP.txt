@@ -1,0 +1,22 @@
+# SERVER CLEANUP COMMANDS
+# Run these on the server (you're already connected)
+
+# 1. Stop all processes
+pm2 stop all
+pm2 delete hyperliquid-app
+
+# 2. Remove old installation completely
+rm -rf /var/www/hyperliquid
+rm -rf /tmp/hyperliquid-*
+rm -rf /tmp/dist
+rm -rf /tmp/deployment
+
+# 3. Verify cleanup
+ls -la /var/www/
+ls -la /tmp/hyperliquid* || echo "✅ Old files cleaned"
+
+# 4. Create fresh directories
+mkdir -p /var/www/hyperliquid
+mkdir -p /var/log/hyperliquid
+
+echo "🧹 Server cleanup complete! Ready for new deployment."

@@ -18,31 +18,74 @@ $credential = New-Object System.Management.Automation.PSCredential ($username, $
 try {
     # Method 1: Try with plink (PuTTY) if available
     if (Get-Command plink -ErrorAction SilentlyContinue) {
-        Write-Host "📤 Uploading files via PuTTY..." -ForegroundColor Yellow
+        Write-Host "🧹 STEP 1: Cleaning server first..." -ForegroundColor Red
         
-        # Upload file
+        # First clean everything
+        $cleanupCommands = @(
+            "pm2 stop all || true",
+            "pm2 delete hyperliquid-app || true", 
+            "rm -rf /var/www/hyperliquid",
+            "rm -rf /tmp/hyperliquid-*",
+            "rm -rf /tmp/dist",
+            "rm -rf /tmp/deployment",
+            "mkdir -p /var/www/hyperliquid",
+            "mkdir -p /var/log/hyperliquid"
+        )
+        
+        foreach ($command in $cleanupCommands) {
+            Write-Host "▶️ Cleanup: $command" -ForegroundColor Red
+            & plink -pw $Password "$username@$serverIP" $command
+        }
+        
+        Write-Host "📤 STEP 2: Uploading fresh build..." -ForegroundColor Yellow
         & pscp -pw $Password hyperliquid-deployment.zip "$username@$serverIP":/tmp/
         
-        # Execute deployment commands
+        # Execute deployment commands with complete cleanup
         $deployCommands = @(
             "cd /tmp",
+            "rm -rf hyperliquid-deployment.zip",
+            "pm2 stop all || true",
+            "pm2 delete hyperliquid-app || true",
+            "rm -rf /var/www/hyperliquid",
+            "rm -rf /tmp/hyperliquid-*",
+            "rm -rf /tmp/dist",
+            "rm -rf /tmp/deployment"
+        )
+        
+        Write-Host "🧹 Cleaning server..." -ForegroundColor Red
+        foreach ($command in $deployCommands) {
+            Write-Host "▶️ Cleanup: $command" -ForegroundColor Red
+            & plink -pw $Password "$username@$serverIP" $command
+        }
+        
+        Write-Host "📤 Uploading fresh build..." -ForegroundColor Yellow
+        & pscp -pw $Password hyperliquid-deployment.zip "$username@$serverIP":/tmp/
+        
+        $installCommands = @(
+            "cd /tmp",
             "unzip -o hyperliquid-deployment.zip",
-            "pm2 stop hyperliquid-app || true",
             "mkdir -p /var/www/hyperliquid",
+            "mkdir -p /var/log/hyperliquid",
             "cp -r dist/* /var/www/hyperliquid/",
             "cp -r deployment/* /var/www/hyperliquid/",
             "cp package.json /var/www/hyperliquid/",
+            "cp ecosystem.config.js /var/www/hyperliquid/",
             "chown -R www-data:www-data /var/www/hyperliquid",
             "chmod -R 755 /var/www/hyperliquid",
             "cd /var/www/hyperliquid",
+            "rm -rf node_modules",
+            "npm cache clean --force",
             "npm install --production",
             "pm2 start ecosystem.config.js",
             "pm2 save",
-            "systemctl reload nginx"
+            "systemctl reload nginx",
+            "sleep 3",
+            "curl -I http://localhost:3000 || echo 'Starting up...'"
         )
         
-        foreach ($command in $deployCommands) {
-            Write-Host "▶️ Executing: $command" -ForegroundColor Cyan
+        Write-Host "🚀 Installing fresh build..." -ForegroundColor Green
+        foreach ($command in $installCommands) {
+            Write-Host "▶️ Installing: $command" -ForegroundColor Green
             & plink -pw $Password "$username@$serverIP" $command
         }
         
