@@ -137,11 +137,11 @@ const ButtonWrapper = ({ tradingParams, basketOrderEnabled = false }: ButtonWrap
       triggerPrice: tradingParams?.triggerPrice, // Set trigger price separately for HyperLiquid compatibility
       stopPrice: tradingParams?.stopPrice, 
       stopLoss: tradingParams?.stopLoss ? tradingParams.stopLoss / 100 : undefined, // Convert percentage
-      // DISABLE automatic order splitting for simple trades
-      orderSplit: false, // Force disable order splitting
-      minPrice: undefined,
-      maxPrice: undefined,
-      splitCount: 1, // Force single order
+      // Respect order split settings from UI
+      orderSplit: tradingParams?.orderSplit || false,
+      minPrice: tradingParams?.minPrice,
+      maxPrice: tradingParams?.maxPrice,
+      splitCount: tradingParams?.splitCount || 1,
       scaleType: tradingParams?.scaleType,
     };
 
@@ -215,9 +215,11 @@ const ButtonWrapper = ({ tradingParams, basketOrderEnabled = false }: ButtonWrap
             leverage: order.leverage,
             triggerPrice: stopLossPrice, // Trigger when price hits stop loss
             price: side === "buy" ? stopLossPrice * 0.99 : stopLossPrice * 1.01, // Slight buffer for execution
-            orderSplit: false,
-            splitCount: 1,
-            scaleType: "Lower"
+            orderSplit: order.orderSplit,
+            minPrice: order.minPrice,
+            maxPrice: order.maxPrice,
+            splitCount: order.splitCount,
+            scaleType: order.scaleType
           };
 
           // Create and execute conditional take profit order  
@@ -229,9 +231,11 @@ const ButtonWrapper = ({ tradingParams, basketOrderEnabled = false }: ButtonWrap
             leverage: order.leverage,
             triggerPrice: takeProfitPrice, // Trigger when price hits take profit
             price: takeProfitPrice, // Execute at take profit price
-            orderSplit: false,
-            splitCount: 1,
-            scaleType: "Lower"
+            orderSplit: order.orderSplit,
+            minPrice: order.minPrice,
+            maxPrice: order.maxPrice,
+            splitCount: order.splitCount,
+            scaleType: order.scaleType
           };
 
           console.log('🎯 Executing stop loss conditional order:', stopLossOrder);
