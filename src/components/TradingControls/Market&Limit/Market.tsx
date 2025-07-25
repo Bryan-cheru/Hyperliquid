@@ -120,14 +120,7 @@ const Market = ({ selectedOrderType = "Market" }: MarketProps) => {
                 </div>
                 
                 {/* Margin Mode Selection */}
-                <div className="flex gap-2">
-                    <button className="px-3 py-1.5 bg-[#24293A] text-white text-sm rounded border border-[#F0B90B]">
-                        Cross
-                    </button>
-                    <button className="px-3 py-1.5 bg-[#24293A] text-white text-sm rounded">
-                        Isolated
-                    </button>
-                </div>
+                {/*   */}
             </div>
 
             {/* Take Profits Section */}
