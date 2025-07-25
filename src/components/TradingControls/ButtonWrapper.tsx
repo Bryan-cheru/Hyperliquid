@@ -5,10 +5,19 @@ import type { TradingParams } from "./Market&Limit/Market";
 
 interface ButtonWrapperProps {
   tradingParams?: TradingParams;
+  basketOrderEnabled?: boolean; // Add prop to know when basket orders are enabled
 }
 
-const ButtonWrapper = ({ tradingParams }: ButtonWrapperProps) => {
-  const { connectedAccount, agentAccount, isTrading, executeOrder, closeAllPositions, cancelAllOrders } = useTrading();
+const ButtonWrapper = ({ tradingParams, basketOrderEnabled = false }: ButtonWrapperProps) => {
+  const { 
+    connectedAccount, 
+    agentAccount, 
+    isTrading, 
+    executeOrder, 
+    closeAllPositions, 
+    cancelAllOrders,
+    getPrice
+  } = useTrading();
   const [statusMessage, setStatusMessage] = useState<string>("");
 
   // Debug logging
@@ -69,7 +78,10 @@ const ButtonWrapper = ({ tradingParams }: ButtonWrapperProps) => {
       console.log(`✅ Using user-specified quantity: ${orderQuantity} ${apiSymbol}`);
     } else {
       // Calculate order quantity based on position size percentage
-      const positionSizePercent = tradingParams?.positionSize || 1; // Default to 1% if not specified
+      const positionSizePercent = tradingParams?.positionSize || 10; // Default to 10% if not specified (was 1%)
+      
+      console.log(`📊 Position Size from UI: ${tradingParams?.positionSize}% (raw: ${tradingParams?.positionSize})`);
+      console.log(`📊 Using Position Size: ${positionSizePercent}% (after default handling)`);
       
       // Base order amounts that represent reasonable trading sizes for each asset
       const baseOrderAmounts: { [key: string]: number } = {
@@ -144,6 +156,7 @@ const ButtonWrapper = ({ tradingParams }: ButtonWrapperProps) => {
     console.log(`   User Specified Quantity: ${tradingParams?.quantity || 'not specified'}`);
     console.log(`   UI Position Size: ${tradingParams?.positionSize || 0}%`);
     console.log(`   Final Order Size: ${order.quantity} ${apiSymbol}`);
+    console.log(`🎯 Basket Order Status: ${basketOrderEnabled ? 'ENABLED' : 'DISABLED'}`);
     
     // Provide USD estimate based on asset
     const priceEstimates: { [key: string]: number } = {
@@ -153,9 +166,100 @@ const ButtonWrapper = ({ tradingParams }: ButtonWrapperProps) => {
     console.log(`   Estimated USD Value: ~$${(order.quantity * estimatedPrice).toFixed(2)}`);
     
     try {
-      const result = await executeOrder(order);
-      console.log(`✅ ${side.toUpperCase()} order result:`, result);
-      setStatusMessage(result.message);
+      // Check if basket orders are enabled - if so, create conditional bracket order
+      if (basketOrderEnabled && tradingParams?.stopLoss && tradingParams.stopLoss > 0) {
+        console.log('🎯 Basket Order Mode: Creating conditional bracket order with stop loss and take profit');
+        
+        // Get current price for conditional order calculations
+        const currentPrice = getPrice(apiSymbol);
+        if (!currentPrice) {
+          setStatusMessage(`❌ Could not get current price for ${apiSymbol}`);
+          return;
+        }
+
+        // Calculate stop loss price from UI parameters
+        let stopLossPrice: number;
+        if (side === "buy") {
+          stopLossPrice = currentPrice * (1 - tradingParams.stopLoss / 100);
+        } else {
+          stopLossPrice = currentPrice * (1 + tradingParams.stopLoss / 100);
+        }
+
+        // Calculate take profit price (default 10% or 2:1 risk-reward ratio)
+        let takeProfitPrice: number;
+        const stopLossDistance = Math.abs(currentPrice - stopLossPrice);
+        if (side === "buy") {
+          takeProfitPrice = currentPrice + (stopLossDistance * 2); // 2:1 risk-reward
+        } else {
+          takeProfitPrice = currentPrice - (stopLossDistance * 2); // 2:1 risk-reward
+        }
+
+        console.log('🎯 Conditional order prices:', {
+          current: currentPrice.toLocaleString(),
+          stopLoss: stopLossPrice.toLocaleString(),
+          takeProfit: takeProfitPrice.toLocaleString(),
+          riskRewardRatio: '2:1'
+        });
+
+        // Execute the main order first
+        const mainOrderResult = await executeOrder(order);
+        console.log(`✅ Main ${side.toUpperCase()} order result:`, mainOrderResult);
+        
+        if (mainOrderResult.success) {
+          // Create and execute conditional stop loss order
+          const stopLossOrder: TradingOrder = {
+            symbol: apiSymbol,
+            side: side === "buy" ? "sell" : "buy", // Opposite side for stop loss
+            orderType: "limit",
+            quantity: order.quantity,
+            leverage: order.leverage,
+            triggerPrice: stopLossPrice, // Trigger when price hits stop loss
+            price: side === "buy" ? stopLossPrice * 0.99 : stopLossPrice * 1.01, // Slight buffer for execution
+            orderSplit: false,
+            splitCount: 1,
+            scaleType: "Lower"
+          };
+
+          // Create and execute conditional take profit order  
+          const takeProfitOrder: TradingOrder = {
+            symbol: apiSymbol,
+            side: side === "buy" ? "sell" : "buy", // Opposite side for take profit
+            orderType: "limit", 
+            quantity: order.quantity,
+            leverage: order.leverage,
+            triggerPrice: takeProfitPrice, // Trigger when price hits take profit
+            price: takeProfitPrice, // Execute at take profit price
+            orderSplit: false,
+            splitCount: 1,
+            scaleType: "Lower"
+          };
+
+          console.log('🎯 Executing stop loss conditional order:', stopLossOrder);
+          console.log('🎯 Executing take profit conditional order:', takeProfitOrder);
+
+          // Execute conditional orders
+          try {
+            const stopLossResult = await executeOrder(stopLossOrder);
+            console.log('✅ Stop loss order result:', stopLossResult);
+            
+            const takeProfitResult = await executeOrder(takeProfitOrder);
+            console.log('✅ Take profit order result:', takeProfitResult);
+
+            setStatusMessage(`✅ ${mainOrderResult.message} + SL/TP orders placed`);
+          } catch (conditionalError) {
+            console.error('❌ Error placing conditional orders:', conditionalError);
+            setStatusMessage(`✅ ${mainOrderResult.message} (SL/TP failed: ${conditionalError})`);
+          }
+        } else {
+          setStatusMessage(`❌ ${mainOrderResult.message}`);
+        }
+      } else {
+        // Regular order execution without conditional orders
+        console.log('🎯 Regular Order Mode: Executing standard order');
+        const result = await executeOrder(order);
+        console.log(`✅ ${side.toUpperCase()} order result:`, result);
+        setStatusMessage(result.message);
+      }
     } catch (error) {
       console.error(`❌ Error executing ${side.toUpperCase()} order:`, error);
       setStatusMessage(`Error: ${error instanceof Error ? error.message : 'Unknown error occurred'}`);
@@ -243,7 +347,7 @@ const ButtonWrapper = ({ tradingParams }: ButtonWrapperProps) => {
                       ? "opacity-50 cursor-not-allowed" 
                       : ""
                   }`}
-                  title={!agentAccount ? "Add an agent account to enable trading" : ""}
+                  title={!agentAccount ? "Add an agent account to enable trading" : basketOrderEnabled ? "Long position with automatic stop loss and take profit" : "Long position"}
                 >
                   {isTrading ? "..." : "LONG"}
                 </button>
@@ -255,11 +359,19 @@ const ButtonWrapper = ({ tradingParams }: ButtonWrapperProps) => {
                       ? "opacity-50 cursor-not-allowed" 
                       : ""
                   }`}
-                  title={!agentAccount ? "Add an agent account to enable trading" : ""}
+                  title={!agentAccount ? "Add an agent account to enable trading" : basketOrderEnabled ? "Short position with automatic stop loss and take profit" : "Short position"}
                 >
                   {isTrading ? "..." : "SHORT"}
                 </button>
             </div>
+
+            {/* Enhanced LONG/SHORT buttons with conditional basket order functionality */}
+            {basketOrderEnabled && (
+              <div className="text-xs text-center text-yellow-400 w-full">
+                🎯 Basket Order Mode: SL + TP enabled for trades
+              </div>
+            )}
+
             <div className="flex flex-col w-full items-center justify-center gap-3">
                 <button 
                   onClick={handleCloseAll}

@@ -32,9 +32,9 @@ const Market = ({ selectedOrderType = "Market" }: MarketProps) => {
     const [leverage, setLeverage] = useState(10);
     const [value2, setValue2] = useState(10);
     const [value, setValue] = useState<number[]>([0]);
-    const [value3, setValue3] = useState<number[]>([0]);
+    const [value3, setValue3] = useState<number[]>([10]); // Start with 10% position size instead of 0%
     const [value4, setValue4] = useState(0); // Changed to 0 for Lower
-    const [quantity, setQuantity] = useState<number>(0.001); // Add quantity state with default minimum
+    // Note: quantity is calculated dynamically from positionSize in ButtonWrapper
     
     const [clickedSplit, setClickedSplit] = useState<boolean>(false);
     const [clickedBasket, setClickedBasket] = useState<boolean>(false);
@@ -52,7 +52,7 @@ const Market = ({ selectedOrderType = "Market" }: MarketProps) => {
     const tradingParams: TradingParams = {
       leverage: value2,
       positionSize: value3[0] ?? 0,
-      quantity: quantity, // Include user-specified quantity
+      // quantity will be calculated dynamically in ButtonWrapper based on positionSize
       stopLoss: value[0] ?? 0,
       orderType: orderType,
       triggerPrice: orderType === "Limit" ? triggerPrice : undefined,
@@ -389,7 +389,7 @@ const Market = ({ selectedOrderType = "Market" }: MarketProps) => {
             <BasketOrder clicked={clickedBasket} setClicked={setClickedBasket} />
             
             {/* Trading Buttons */}
-            <ButtonWrapper tradingParams={tradingParams} />
+            <ButtonWrapper tradingParams={tradingParams} basketOrderEnabled={clickedBasket} />
         </div>
     )
 }

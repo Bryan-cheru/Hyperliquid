@@ -71,7 +71,7 @@ export interface TradeHistoryItem {
   value: number;
   status: 'filled' | 'partial' | 'cancelled';
   orderId: string;
-  type: 'market' | 'limit'; // Add order type tracking
+  type: 'market' | 'limit' | 'conditional'; // Add conditional order type tracking
 }
 
 export interface OpenOrder {

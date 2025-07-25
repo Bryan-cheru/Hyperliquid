@@ -3,6 +3,13 @@ import type { ReactNode } from "react";
 import { signOrderAction } from "../utils/hyperLiquidSigning";
 import { validateOrderPayload, logOrderDetails } from "../utils/hyperLiquidHelpers";
 import { marketDataService, type MarketPrice, type TradeHistoryItem, type OpenOrder, type Position } from "../utils/marketDataService";
+import { 
+  createConditionalOrder, 
+  createStopLossOrder, 
+  createTakeProfitOrder, 
+  validateConditionalOrder,
+  type ConditionalOrderConfig 
+} from "../utils/conditionalOrders";
 
 // Types for master account (view-only) and trading functionality
 export interface ConnectedAccount {
@@ -29,7 +36,7 @@ export interface AgentAccount {
 export interface TradingOrder {
   symbol: string;
   side: "buy" | "sell";
-  orderType: "market" | "limit";
+  orderType: "market" | "limit" | "conditional";
   quantity: number;
   price?: number;
   leverage: number;
@@ -43,6 +50,12 @@ export interface TradingOrder {
   maxPrice?: number;
   splitCount?: number;
   scaleType?: string;
+  
+  // Conditional order parameters
+  conditionalType?: "stop_loss" | "take_profit" | "trigger_limit";
+  isMarketExecution?: boolean; // For conditional orders: market vs limit execution
+  limitExecutionPrice?: number; // Price for limit execution when triggered
+  reduceOnly?: boolean; // Typically true for stop loss/take profit
 }
 
 // Context interface
@@ -65,6 +78,11 @@ interface TradingContextType {
   executeOrder: (order: TradingOrder) => Promise<{ success: boolean; message: string; orderId?: string }>;
   closeAllPositions: () => Promise<{ success: boolean; message: string }>;
   cancelAllOrders: () => Promise<{ success: boolean; message: string }>;
+  
+  // Conditional Order Functions
+  createStopLossOrder: (symbol: string, side: "buy" | "sell", quantity: number, triggerPrice: number, isMarket?: boolean) => Promise<{ success: boolean; message: string; orderId?: string }>;
+  createTakeProfitOrder: (symbol: string, side: "buy" | "sell", quantity: number, triggerPrice: number, isMarket?: boolean) => Promise<{ success: boolean; message: string; orderId?: string }>;
+  createBracketOrder: (symbol: string, side: "buy" | "sell", quantity: number, stopLossPrice: number, takeProfitPrice: number, isMarket?: boolean) => Promise<{ success: boolean; message: string; orderIds?: string[] }>;
   
   // Market data from master account
   marketPrices: Map<string, MarketPrice>;
@@ -99,7 +117,7 @@ export const TradingProvider = ({ children }: { children: ReactNode }) => {
   const [positions, setPositions] = useState<Position[]>([]);
 
   // Order type registry to track market vs limit orders
-  const [orderTypeRegistry, setOrderTypeRegistry] = useState<Map<string, 'market' | 'limit'>>(new Map());
+  const [orderTypeRegistry, setOrderTypeRegistry] = useState<Map<string, 'market' | 'limit' | 'conditional'>>(new Map());
 
   // Market data functions
   const refreshMarketData = useCallback(async () => {
@@ -682,21 +700,66 @@ export const TradingProvider = ({ children }: { children: ReactNode }) => {
         }
       }
 
-      // Define order action - using fixed pricing logic
-      const orderAction = {
-        type: "order",
-        orders: [{
-          a: assetIndex, // asset index
-          b: order.side === "buy", // isBuy
-          p: orderPrice, // Use dynamic price based on order type and market conditions
-          s: order.quantity.toString(), // size
-          r: false, // reduceOnly
-          t: timeInForce // Use proper time-in-force based on order type
-        }],
-        grouping: "na"
-      };
+      // Define order action - handling both regular and conditional orders
+      let orderAction: any;
 
-      console.log('📋 Order Action Structure:', JSON.stringify(orderAction, null, 2));
+      if (order.orderType === "conditional" && order.conditionalType && order.triggerPrice) {
+        console.log('🎯 Creating conditional order:', {
+          type: order.conditionalType,
+          triggerPrice: order.triggerPrice,
+          isMarket: order.isMarketExecution ?? true
+        });
+
+        // Create conditional order configuration
+        const conditionalConfig: ConditionalOrderConfig = {
+          symbol: assetSymbol,
+          side: order.side,
+          quantity: order.quantity,
+          leverage: order.leverage,
+          triggerPrice: order.triggerPrice,
+          orderType: order.conditionalType,
+          isMarket: order.isMarketExecution ?? true,
+          limitPrice: order.limitExecutionPrice,
+          reduceOnly: order.reduceOnly ?? false
+        };
+
+        // Validate conditional order
+        const validation = validateConditionalOrder(conditionalConfig, currentPrice || 100000);
+        if (!validation.valid) {
+          return {
+            success: false,
+            message: `❌ Conditional order validation failed:\n${validation.errors.join('\n')}`
+          };
+        }
+
+        // Create HyperLiquid conditional order
+        const conditionalOrder = createConditionalOrder(conditionalConfig, assetIndex);
+        
+        orderAction = {
+          type: "order",
+          orders: [conditionalOrder],
+          grouping: "na"
+        };
+
+        console.log('✅ Conditional order action created:', JSON.stringify(orderAction, null, 2));
+
+      } else {
+        // Standard market/limit order
+        orderAction = {
+          type: "order",
+          orders: [{
+            a: assetIndex, // asset index
+            b: order.side === "buy", // isBuy
+            p: orderPrice, // Use dynamic price based on order type and market conditions
+            s: order.quantity.toString(), // size
+            r: order.reduceOnly ?? false, // reduceOnly
+            t: timeInForce // Use proper time-in-force based on order type
+          }],
+          grouping: "na"
+        };
+
+        console.log('📋 Standard order action created:', JSON.stringify(orderAction, null, 2));
+      }
 
       // Prepare HyperLiquid order payload for direct account trading
       const nonce = Date.now();
@@ -1391,6 +1454,116 @@ export const TradingProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
+  // Conditional Order Helper Functions
+  const createStopLossOrderWrapper = async (
+    symbol: string, 
+    side: "buy" | "sell", 
+    quantity: number, 
+    triggerPrice: number, 
+    isMarket: boolean = true
+  ): Promise<{ success: boolean; message: string; orderId?: string }> => {
+    const stopLossOrder: TradingOrder = {
+      symbol,
+      side: side === "buy" ? "sell" : "buy", // Opposite side for stop loss
+      orderType: "conditional",
+      quantity,
+      leverage: 1,
+      conditionalType: "stop_loss",
+      triggerPrice,
+      isMarketExecution: isMarket,
+      reduceOnly: true
+    };
+
+    return await executeOrder(stopLossOrder);
+  };
+
+  const createTakeProfitOrderWrapper = async (
+    symbol: string, 
+    side: "buy" | "sell", 
+    quantity: number, 
+    triggerPrice: number, 
+    isMarket: boolean = true
+  ): Promise<{ success: boolean; message: string; orderId?: string }> => {
+    const takeProfitOrder: TradingOrder = {
+      symbol,
+      side: side === "buy" ? "sell" : "buy", // Opposite side for take profit
+      orderType: "conditional",
+      quantity,
+      leverage: 1,
+      conditionalType: "take_profit",
+      triggerPrice,
+      isMarketExecution: isMarket,
+      reduceOnly: true
+    };
+
+    return await executeOrder(takeProfitOrder);
+  };
+
+  const createBracketOrderWrapper = async (
+    symbol: string, 
+    side: "buy" | "sell", 
+    quantity: number, 
+    stopLossPrice: number, 
+    takeProfitPrice: number, 
+    isMarket: boolean = true
+  ): Promise<{ success: boolean; message: string; orderIds?: string[] }> => {
+    console.log('🎯 Creating bracket order:', {
+      symbol,
+      side,
+      quantity,
+      stopLossPrice,
+      takeProfitPrice,
+      isMarket
+    });
+
+    const results: string[] = [];
+    const errors: string[] = [];
+
+    try {
+      // Create stop loss order
+      const stopLossResult = await createStopLossOrderWrapper(symbol, side, quantity, stopLossPrice, isMarket);
+      if (stopLossResult.success && stopLossResult.orderId) {
+        results.push(stopLossResult.orderId);
+        console.log('✅ Stop loss order created:', stopLossResult.orderId);
+      } else {
+        errors.push(`Stop loss failed: ${stopLossResult.message}`);
+      }
+
+      // Create take profit order
+      const takeProfitResult = await createTakeProfitOrderWrapper(symbol, side, quantity, takeProfitPrice, isMarket);
+      if (takeProfitResult.success && takeProfitResult.orderId) {
+        results.push(takeProfitResult.orderId);
+        console.log('✅ Take profit order created:', takeProfitResult.orderId);
+      } else {
+        errors.push(`Take profit failed: ${takeProfitResult.message}`);
+      }
+
+      if (results.length === 0) {
+        return {
+          success: false,
+          message: `❌ Bracket order failed:\n${errors.join('\n')}`
+        };
+      } else if (results.length === 1) {
+        return {
+          success: true,
+          message: `⚠️ Partial bracket order success (${results.length}/2 orders created):\n${errors.join('\n')}`,
+          orderIds: results
+        };
+      } else {
+        return {
+          success: true,
+          message: `✅ Bracket order created successfully with ${results.length} conditional orders`,
+          orderIds: results
+        };
+      }
+    } catch (error) {
+      return {
+        success: false,
+        message: `❌ Bracket order error: ${error instanceof Error ? error.message : 'Unknown error'}`
+      };
+    }
+  };
+
   // Context value
   const contextValue: TradingContextType = {
     connectedAccount,
@@ -1414,7 +1587,12 @@ export const TradingProvider = ({ children }: { children: ReactNode }) => {
     getPrice,
     checkAccountMargin,
     closeAllPositions,
-    cancelAllOrders
+    cancelAllOrders,
+    
+    // Conditional order functions
+    createStopLossOrder: createStopLossOrderWrapper,
+    createTakeProfitOrder: createTakeProfitOrderWrapper,
+    createBracketOrder: createBracketOrderWrapper
   };
 
   return (
