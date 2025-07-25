@@ -180,6 +180,19 @@ export const TradingProvider = ({ children }: { children: ReactNode }) => {
     return null;
   }, [marketPrices]);
 
+  // Update browser tab title with BTC price
+  useEffect(() => {
+    const btcPrice = getPrice('BTC');
+    if (btcPrice && btcPrice > 1000) {
+      // Format price to match the reference: "115,623 | BTC | Hyperliquid"
+      const formattedPrice = Math.round(btcPrice).toLocaleString();
+      document.title = `${formattedPrice} | BTC | Hyperliquid`;
+    } else {
+      // Fallback title
+      document.title = 'Hyper Max';
+    }
+  }, [marketPrices, getPrice]); // Update when market prices change
+
   // Refresh all data at once
   const refreshAllData = useCallback(async () => {
     if (!connectedAccount?.publicKey) return;
