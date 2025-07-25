@@ -390,6 +390,138 @@ const Market = ({ selectedOrderType = "Market" }: MarketProps) => {
             <ButtonWrapper tradingParams={tradingParams} />
         </div>
     )
+                        <input 
+                          type="number" 
+                          placeholder="Enter Price" 
+                          className="inputs" 
+                          value={triggerPrice || ''}
+                          onChange={(e) => setTriggerPrice(parseFloat(e.target.value) || 0)}
+                        />
+                    </div>
+                    <div className="flex flex-col gap-1.5 w-full">
+                        <h2 className="text-white font-medium">Stop Price</h2>
+                        <input 
+                          type="number" 
+                          placeholder="Enter Price" 
+                          className="inputs" 
+                          value={stopPrice || ''}
+                          onChange={(e) => setStopPrice(parseFloat(e.target.value) || 0)}
+                        />
+                    </div>
+                </div>
+                
+                {/* Order type is controlled by parent TradingControls - no local toggle needed */}
+                
+                    <div className="flex gap-3 items-center">
+                        <label className="relative cursor-pointer flex">
+                        <input
+                            type="checkbox"
+                            onChange={() => setClickedSplit(prev => !prev)}
+                            checked={clickedSplit}
+                            className="cursor-pointer peer appearance-none h-[22px] w-[22px] shrink-0 rounded-xs border-2 border-[#787b7f] bg-transparent checked:bg-blue-500 checked:border-blue-500"
+                        />
+                            <svg
+                                className="absolute left-1 top-1 h-4 w-4 text-white pointer-events-none opacity-0 peer-checked:opacity-100"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="currentColor"
+                                strokeWidth="3"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                            >
+                                <polyline points="20 6 9 17 4 12" />
+                            </svg>
+                        </label>
+                        <h1 className="text-xl font-medium text-white">Order Split</h1>
+                    </div>
+                    <div className="flex gap-5 w-full max-w-full">
+                    <div className="flex flex-col gap-1.5 w-full basis-1/2">
+                        <h2 className="text-white font-medium">Min price</h2>
+                        <input 
+                          type="number" 
+                          readOnly={!clickedSplit} 
+                          disabled={!clickedSplit} 
+                          placeholder="Enter Price" 
+                          className={`inputs ${clickedSplit ? "" : "bg-gray-800"}`}
+                          value={clickedSplit ? (minPrice || '') : ''}
+                          onChange={(e) => setMinPrice(parseFloat(e.target.value) || 0)}
+                        />
+                    </div>
+                    <div className="flex flex-col gap-1.5 w-full basis-1/2">
+                        <h2 className="text-white font-medium">Max price</h2>
+                        <input 
+                          type="number" 
+                          readOnly={!clickedSplit} 
+                          disabled={!clickedSplit} 
+                          placeholder="Enter Price" 
+                          className={`inputs ${clickedSplit ? "" : "bg-gray-800"}`}
+                          value={clickedSplit ? (maxPrice || '') : ''}
+                          onChange={(e) => setMaxPrice(parseFloat(e.target.value) || 0)}
+                        />
+                    </div>
+                </div>
+            </div>
+
+            <div>
+            <h1 className="text-[#B0B0B0] text-sm inter">Split: <span className="text-white">{leverage}</span></h1>
+                              <Slider.Root
+                                  className="relative flex items-center select-none touch-none w-full h-8"
+                                  min={0}
+                                  max={30}
+                                  step={1}
+                                  disabled={!clickedSplit}
+                                  value={[leverage]}
+                                  onValueChange={([val]) => setLeverage(val)}
+                              >
+                                  <Slider.Track className={`bg-[#E5E5E5] relative grow rounded-full h-2 ${!clickedSplit ? "bg-gray-700" : "bg-[#E5E5E5]"}`}>
+                                        <Slider.Range className={`absolute h-full rounded-full ${!clickedSplit ? "bg-gray-700" : "bg-yellow-400"}`} />
+                                   </Slider.Track>
+                                  <Slider.SliderThumb >
+                                      <svg xmlns="http://www.w3.org/2000/svg" className="outline-none" width="18" height="18" viewBox="0 0 16 16" fill="none">
+                                          <path d="M8 15.4998C12.1421 15.4998 15.5 12.1419 15.5 7.99986C15.5 3.8577 12.1421 0.499847 8 0.499847C3.85788 0.499847 0.5 3.8577 0.5 7.99986C0.5 12.1419 3.85788 15.4998 8 15.4998Z" fill={!clickedSplit ? "bg-gray-700" : "#F0B90B"} />
+                                      </svg>
+                                  </Slider.SliderThumb>
+                              </Slider.Root>
+            
+                              <div className="flex justify-between text-sm text-white mt-1 font-bold">
+                                  <span>0</span>
+                                  <span>30</span>
+                              </div>
+                          </div>
+            <div>
+                    <h1 className="text-[#B0B0B0] text-sm inter">Scale: <span className="text-white">{value4 === 0 ? "Lower" : value4 === 1 ? "Mid point" : value4 === 2 ? "Upper" : ""}</span></h1>
+                              <Slider.Root
+                                  className="relative flex items-center select-none touch-none w-full h-8"
+                                  min={0}
+                                  max={2}
+                                  step={1}
+                                  disabled={!clickedSplit}
+                                  value={[value4]}
+                                  onValueChange={([val]) => setValue4(val)}
+                              >
+                                  <Slider.Track className={`bg-[#E5E5E5] relative grow rounded-full h-2 ${!clickedSplit ? "bg-gray-700" : "bg-[#E5E5E5]"}`}>
+                                      <Slider.Range className={`absolute h-full rounded-full ${!clickedSplit ? "bg-gray-700" : "bg-yellow-400"}`} />
+                                  </Slider.Track>
+                                  <Slider.SliderThumb >
+                                      <svg xmlns="http://www.w3.org/2000/svg" className="outline-none" width="18" height="18" viewBox="0 0 16 16" fill="none">
+                                          <path d="M8 15.4998C12.1421 15.4998 15.5 12.1419 15.5 7.99986C15.5 3.8577 12.1421 0.499847 8 0.499847C3.85788 0.499847 0.5 3.8577 0.5 7.99986C0.5 12.1419 3.85788 15.4998 8 15.4998Z" fill={!clickedSplit ? "bg-gray-700" : "#F0B90B"} />
+                                      </svg>
+                                  </Slider.SliderThumb>
+                              </Slider.Root>
+            
+                              <div className="flex justify-between text-sm text-white mt-1 font-bold">
+                                  <span>Lower band</span>
+                                  <span>|</span>
+                                  <span>Upper band</span>
+                              </div>
+                          </div>
+            
+            {/* Basket Order Component */}
+            <BasketOrder clicked={clickedBasket} setClicked={setClickedBasket} />
+            
+            <ButtonWrapper tradingParams={tradingParams} />
+        </div>
+    )
 }
 
 export default Market

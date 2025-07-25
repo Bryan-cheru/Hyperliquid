@@ -63,6 +63,7 @@
     "@eslint/js": "^9.25.0",
     "@playwright/test": "^1.54.1",
     "@types/msgpack-lite": "^0.1.11",
+    "@types/node": "^24.1.0",
     "@types/react": "^19.1.8",
     "@types/react-dom": "^19.1.2",
     "@vitejs/plugin-react": "^4.4.1",

@@ -1,22 +1,38 @@
 import * as Slider from "@radix-ui/react-slider"
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import ButtonWrapper from "../ButtonWrapper";
 import LimitChaser from "../LimitChaser";
 import { LimitOrder } from "../LimitOrder";
 import Profits from "../Profits";
 import Leverage from "../Leverage/Leverage";
 import BasketOrder from "../BasketOrder";
+import { useTrading } from "../../../contexts/TradingContext";
 import { type TradingParams } from "./Market";
 
 const Limit = () => {
 
+    const { getPrice } = useTrading(); // Get current market price
     const [leverage, setLeverage] = useState<number>(10);
     const [value, setValue] = useState<number>(0);
     const [value2, setValue2] = useState<number>(0);
     const [clicked, setClicked] = useState<boolean>(false);
     const [clickedSplit, setClickedSplit] = useState<boolean>(false);
     const [clickedBasket, setClickedBasket] = useState<boolean>(false);
-    const [limitPrice, setLimitPrice] = useState<number>(97000); // Initialize with default BTC price
+    const [limitPrice, setLimitPrice] = useState<number>(0); // Start with 0, will be set from market price
+
+    // Get current BTC price and set reasonable limit price
+    useEffect(() => {
+        const currentPrice = getPrice('BTC');
+        if (currentPrice && currentPrice > 0 && limitPrice === 0) {
+            // Set initial limit price to current market price
+            setLimitPrice(currentPrice);
+            console.log(`🔄 Initial limit price set to current BTC price: $${currentPrice.toLocaleString()}`);
+        } else if (!currentPrice && limitPrice === 0) {
+            // Fallback to reasonable BTC price if no market data
+            setLimitPrice(97000);
+            console.log('🔄 Using fallback limit price: $97,000');
+        }
+    }, [getPrice, limitPrice]);
 
     // Handle price change from LimitOrder component
     const handlePriceChange = (price: number) => {
@@ -42,6 +58,7 @@ const Limit = () => {
     // Debug logging
     console.log('🔍 Limit Component - Trading Params:', tradingParams);
     console.log('🔍 Limit Component - limitPrice:', limitPrice);
+    console.log('🔍 Limit Component - current BTC price from context:', getPrice('BTC'));
 
   return (
     <>
