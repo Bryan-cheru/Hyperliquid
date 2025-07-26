@@ -2,7 +2,7 @@ import { test } from '@playwright/test';
 
 test('test', async ({ page }) => {
   test.setTimeout(2400000); // 4 minutes timeout
-  await page.goto('http://localhost:5174/');
+  await page.goto('http://155.138.229.220/');
   await page.getByRole('button', { name: 'Connect Master Account' }).click();
   await page.getByRole('textbox', { name: 'e.g., Main Trading Account' }).click();
   await page.getByRole('textbox', { name: 'e.g., Main Trading Account' }).fill('master');
