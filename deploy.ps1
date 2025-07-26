@@ -91,7 +91,8 @@ pm2 list
     
     Write-Host "🎉 Deployment finished! Your app is live at http://$ServerIP" -ForegroundColor Green
     
-} catch {
+}
+catch {
     Write-Host "❌ Deployment failed: $($_.Exception.Message)" -ForegroundColor Red
     exit 1
 }
