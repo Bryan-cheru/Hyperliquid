@@ -1,4 +1,4 @@
-name: Deploy to Server
+name: Build and Test
 
 on:
   push:
@@ -27,96 +27,31 @@ jobs:
     
     - name: Build application
       run: npm run build
-
-  deploy:
-    needs: test
-    runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/order-split'
-    
-    steps:
-    - uses: actions/checkout@v4
-    
-    - name: Setup Node.js
-      uses: actions/setup-node@v4
-      with:
-        node-version: '20'
-        cache: 'npm'
-    
-    - name: Install dependencies
-      run: npm ci
-    
-    - name: Build application
-      run: npm run build
     
     - name: Create deployment package
       run: |
-        mkdir deployment
-        cp -r dist/* deployment/
-        cp package.json deployment/
-        cp ecosystem.config.js deployment/
-        cd deployment
-        zip -r ../hyperliquid-deployment.zip .
+        mkdir deployment-package
+        cp -r dist/* deployment-package/
+        cp package.json deployment-package/
+        cp ecosystem.config.cjs deployment-package/
+        cd deployment-package
+        zip -r ../hyperliquid-build-$(date +%Y%m%d-%H%M%S).zip .
     
-    - name: Deploy to server
-      uses: appleboy/ssh-action@v1.0.3
+    - name: Upload build artifact
+      uses: actions/upload-artifact@v4
       with:
-        host: ${{ secrets.SERVER_HOST }}
-        username: ${{ secrets.SERVER_USER }}
-        password: ${{ secrets.SERVER_PASSWORD }}
-        script: |
-          # Stop current application
-          pm2 stop hyperliquid-app || true
-          pm2 delete hyperliquid-app || true
-          
-          # Clean up old files
-          rm -rf /var/www/hyperliquid
-          rm -rf /tmp/hyperliquid-*
-          
-          # Create directories
-          mkdir -p /var/www/hyperliquid
-          mkdir -p /var/log/hyperliquid
+        name: hyperliquid-deployment-${{ github.sha }}
+        path: hyperliquid-build-*.zip
+        retention-days: 30
     
-    - name: Upload deployment package
-      uses: appleboy/scp-action@v0.1.7
-      with:
-        host: ${{ secrets.SERVER_HOST }}
-        username: ${{ secrets.SERVER_USER }}
-        password: ${{ secrets.SERVER_PASSWORD }}
-        source: "hyperliquid-deployment.zip"
-        target: "/tmp/"
-    
-    - name: Extract and start application
-      uses: appleboy/ssh-action@v1.0.3
-      with:
-        host: ${{ secrets.SERVER_HOST }}
-        username: ${{ secrets.SERVER_USER }}
-        password: ${{ secrets.SERVER_PASSWORD }}
-        script: |
-          # Extract deployment
-          cd /tmp
-          unzip -o hyperliquid-deployment.zip -d extracted/
-          
-          # Copy files to web directory
-          cp -r extracted/* /var/www/hyperliquid/
-          
-          # Set permissions
-          chown -R www-data:www-data /var/www/hyperliquid
-          chmod -R 755 /var/www/hyperliquid
-          
-          # Install dependencies and start
-          cd /var/www/hyperliquid
-          
-          # Rename ecosystem config if needed
-          if [ -f "ecosystem.config.js" ]; then
-            mv ecosystem.config.js ecosystem.config.cjs
-          fi
-          
-          npm install --production
-          pm2 start ecosystem.config.cjs
-          pm2 save
-          
-          # Cleanup
-          rm -rf /tmp/extracted
-          rm -f /tmp/hyperliquid-deployment.zip
-          
-          echo "Deployment completed successfully!"
+    - name: Deployment Instructions
+      run: |
+        echo "🚀 Build completed successfully!"
+        echo ""
+        echo "To deploy manually:"
+        echo "1. Download the build artifact from this workflow"
+        echo "2. Run the interactive deployment script:"
+        echo "   ./interactive-deploy.ps1"
+        echo ""
+        echo "Or use the secure manual deployment process described in the README."
+
