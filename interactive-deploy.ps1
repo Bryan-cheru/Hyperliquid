@@ -71,7 +71,7 @@ if ($LASTEXITCODE -ne 0) {
 
 Write-Host "Executing deployment commands on server..." -ForegroundColor Yellow
 
-# Create deployment script for server
+# Create deployment script for server with Unix line endings
 $deployScript = @"
 #!/bin/bash
 echo "Starting deployment..."
@@ -118,8 +118,9 @@ pm2 list
 curl -I http://localhost:3000
 "@
 
-# Save deploy script temporarily
-$deployScript | Out-File -FilePath "deploy-server.sh" -Encoding UTF8
+# Save deploy script with Unix line endings (LF only)
+$deployScript.Replace("`r`n", "`n") | Out-File -FilePath "deploy-server.sh" -Encoding UTF8 -NoNewline
+Add-Content -Path "deploy-server.sh" -Value "`n" -Encoding UTF8 -NoNewline
 
 # Upload and execute deploy script
 Write-Host "Uploading deployment script..." -ForegroundColor Gray
