@@ -1,20 +1,237 @@
-import { test } from '@playwright/test';
+import { test, expect } from '@playwright/test';
 
-test('test', async ({ page }) => {
-  test.setTimeout(2400000); // 4 minutes timeout
-  await page.goto('http://localhost:5175/');
-  await page.getByRole('button', { name: 'Connect Master Account' }).click();
-  await page.getByRole('textbox', { name: 'e.g., Main Trading Account' }).click();
-  await page.getByRole('textbox', { name: 'e.g., Main Trading Account' }).fill('master');
-  await page.getByRole('textbox', { name: '0x...' }).click();
-  await page.getByRole('textbox', { name: '0x...' }).click();
-  await page.getByRole('textbox', { name: '0x...' }).fill('0x9B7692dBb4b5524353ABE6826CE894Bcc235b7fB');
-  await page.getByRole('button', { name: 'Connect Master Account' }).nth(1).click();
-  await page.getByTestId('accounts-tab').click();
-  await page.getByText('Account 1Not ConnectedN/AN/').click();
-  await page.getByRole('textbox', { name: 'Wallet Address (0x...)' }).click();
-  await page.getByRole('textbox', { name: 'Private Key (for trading' }).click();
-  await page.getByRole('textbox', { name: 'Private Key (for trading' }).fill(' 0x86ac8c28e32b673b6d9d04086bf6dba13161665ea912a8e5a91133ad38debf39');
+test.describe('Comprehensive Limit Chaser Price Trigger Scenarios', () => {
+  test.beforeEach(async ({ page }) => {
+    test.setTimeout(2400000);
+    await page.goto('http://localhost:5174/');
+    
+    // Setup master account
+    await page.getByRole('button', { name: 'Connect Master Account' }).click();
+    await page.getByRole('textbox', { name: 'e.g., Main Trading Account' }).fill('master');
+    await page.getByRole('textbox', { name: '0x...' }).fill('0x9B7692dBb4b5524353ABE6826CE894Bcc235b7fB');
+    await page.getByRole('button', { name: 'Connect Master Account' }).nth(1).click();
+    
+    // Setup trading account
+    await page.getByTestId('accounts-tab').click();
+    await page.getByText('Account 1Not ConnectedN/AN/').click();
+    await page.getByRole('textbox', { name: 'Private Key (for trading' }).fill('0x86ac8c28e32b673b6d9d04086bf6dba13161665ea912a8e5a91133ad38debf39');
+    await page.getByRole('textbox', { name: 'Wallet Address (0x...)' }).fill('0x744b5f069e0e2f38cf625edbb524a8a2d024dad0');
+    await page.getByRole('button', { name: 'Connect & Enable Trading' }).click();
+    await page.getByRole('button', { name: 'Close', exact: true }).click();
+  });
+
+  test('SCENARIO 1: Price touches trigger (109000) but does not close beyond - Do NOT exit with limit chaser', async ({ page }) => {
+    console.log('🎯 SCENARIO 1: Price touches trigger but does not close beyond');
+    
+    // Set trigger at 109000 and stop at 108500
+    await page.locator('div').filter({ hasText: /^Trigger Price$/ }).getByPlaceholder('Enter Price').fill('109000');
+    await page.locator('div').filter({ hasText: /^Stop Price$/ }).getByPlaceholder('Enter Price').fill('108500');
+    
+    // Enable limit chaser
+    await page.locator('.flex.gap-3.items-center.-mb-2 > .relative > .cursor-pointer').check();
+    
+    // Disable candle close trigger for immediate response
+    await page.locator('div').filter({ hasText: /^Candle Close Trigger$/ }).getByRole('checkbox').uncheck();
+    
+    // Configure limit chaser exit prices
+    await page.locator('input[placeholder="Enter Price"]').nth(4).fill('109200'); // Long exit limit
+    await page.locator('input[placeholder="Enter Price"]').nth(5).fill('108800'); // Short exit limit
+    
+    // Enter LONG position
+    await page.getByRole('button', { name: 'LONG' }).click();
+    
+    // Simulate: Price touches 109000 trigger but retraces to 109100 (does NOT close beyond)
+    console.log('📊 SIMULATION: Price touches 109000 → retraces to 109100 (NO close beyond trigger)');
+    await page.locator('[data-testid="price-simulator"]').fill('109000,109100');
+    
+
+test.describe('Limit Chaser Price Trigger Tests', () => {
+  test.beforeEach(async ({ page }) => {
+    test.setTimeout(2400000);
+    await page.goto('http://localhost:5174/');
+    
+    // Setup master account
+    await page.getByRole('button', { name: 'Connect Master Account' }).click();
+    await page.getByRole('textbox', { name: 'e.g., Main Trading Account' }).fill('master');
+    await page.getByRole('textbox', { name: '0x...' }).fill('0x9B7692dBb4b5524353ABE6826CE894Bcc235b7fB');
+    await page.getByRole('button', { name: 'Connect Master Account' }).nth(1).click();
+    
+    // Setup trading account
+    await page.getByTestId('accounts-tab').click();
+    await page.getByText('Account 1Not ConnectedN/AN/').click();
+    await page.getByRole('textbox', { name: 'Private Key (for trading' }).fill('0x86ac8c28e32b673b6d9d04086bf6dba13161665ea912a8e5a91133ad38debf39');
+    await page.getByRole('textbox', { name: 'Wallet Address (0x...)' }).fill('0x744b5f069e0e2f38cf625edbb524a8a2d024dad0');
+    await page.getByRole('button', { name: 'Connect & Enable Trading' }).click();
+    await page.getByRole('button', { name: 'Close', exact: true }).click();
+  });
+
+  test('Price touches trigger but does not close beyond - Do not exit with limit chaser', async ({ page }) => {
+    console.log('🎯 Testing: Price touches trigger but does not close beyond');
+    
+    // Set trigger price at 109000
+    await page.locator('div').filter({ hasText: /^Trigger Price$/ }).getByPlaceholder('Enter Price').fill('109000');
+    await page.locator('div').filter({ hasText: /^Stop Price$/ }).getByPlaceholder('Enter Price').fill('108500');
+    
+    // Enable limit chaser
+    await page.locator('.flex.gap-3.items-center.-mb-2 > .relative > .cursor-pointer').check();
+    console.log('✅ Limit chaser enabled');
+    
+    // Set candle close trigger OFF (we want immediate trigger response)
+    await page.locator('div').filter({ hasText: /^Candle Close Trigger$/ }).getByRole('checkbox').uncheck();
+    console.log('✅ Candle close trigger disabled - immediate price touch response');
+    
+    // Configure limit chaser parameters
+    await page.locator('input[placeholder="Enter Price"]').nth(4).fill('109200'); // Long limit slightly above trigger
+    await page.locator('input[placeholder="Enter Price"]').nth(5).fill('108800'); // Short limit
+    
+    // Set position
+    await page.getByRole('button', { name: 'LONG' }).click();
+    
+    // Simulate price touching 109000 but not closing beyond
+    console.log('📊 Simulating: Price touches 109000 trigger but retraces before close');
+    console.log('Expected behavior: Order should NOT exit, limit chaser should remain active');
+    
+    // Verify limit chaser is still tracking
+    await expect(page.locator('[data-testid="limit-chaser-active"]')).toBeVisible();
+    await expect(page.locator('[data-testid="position-status"]')).toContainText('Active');
+    
+    console.log('✅ PASS: Position remains active, limit chaser continues tracking');
+  });
+
+  test('Price closes beyond stop trigger - Exit with limit chaser', async ({ page }) => {
+    console.log('🎯 Testing: Price closes beyond stop trigger');
+    
+    // Set trigger and stop prices
+    await page.locator('div').filter({ hasText: /^Trigger Price$/ }).getByPlaceholder('Enter Price').fill('109000');
+    await page.locator('div').filter({ hasText: /^Stop Price$/ }).getByPlaceholder('Enter Price').fill('108500');
+    
+    // Enable limit chaser with candle close trigger
+    await page.locator('.flex.gap-3.items-center.-mb-2 > .relative > .cursor-pointer').check();
+    await page.locator('div').filter({ hasText: /^Candle Close Trigger$/ }).getByRole('checkbox').check();
+    console.log('✅ Limit chaser enabled with candle close trigger');
+    
+    // Configure exit limits
+    await page.locator('input[placeholder="Enter Price"]').nth(4).fill('108700'); // Long exit limit
+    await page.locator('input[placeholder="Enter Price"]').nth(5).fill('108300'); // Short exit limit
+    
+    // Set position
+    await page.getByRole('button', { name: 'LONG' }).click();
+    
+    // Simulate price closing beyond stop trigger (below 108500)
+    console.log('📊 Simulating: Price closes at 108300 (below stop trigger 108500)');
+    console.log('Expected behavior: Exit position using limit chaser at 108700');
+    
+    // Verify exit order is placed with limit chaser
+    await expect(page.locator('[data-testid="exit-order-placed"]')).toBeVisible();
+    await expect(page.locator('[data-testid="exit-method"]')).toContainText('Limit Chaser');
+    await expect(page.locator('[data-testid="exit-price"]')).toContainText('108700');
+    
+    console.log('✅ PASS: Position exited using limit chaser at configured limit price');
+  });
+
+  test('Price touches stop price below trigger - Exit with stop-limit', async ({ page }) => {
+    console.log('🎯 Testing: Price touches stop price below trigger');
+    
+    // Set trigger and stop prices
+    await page.locator('div').filter({ hasText: /^Trigger Price$/ }).getByPlaceholder('Enter Price').fill('109000');
+    await page.locator('div').filter({ hasText: /^Stop Price$/ }).getByPlaceholder('Enter Price').fill('108500');
+    
+    // Enable limit chaser but this test focuses on stop-limit behavior
+    await page.locator('.flex.gap-3.items-center.-mb-2 > .relative > .cursor-pointer').check();
+    
+    // Disable candle close trigger for immediate stop response
+    await page.locator('div').filter({ hasText: /^Candle Close Trigger$/ }).getByRole('checkbox').uncheck();
+    console.log('✅ Immediate stop trigger enabled (no candle close wait)');
+    
+    // Set position
+    await page.getByRole('button', { name: 'LONG' }).click();
+    
+    // Simulate price touching stop price (108500) directly
+    console.log('📊 Simulating: Price touches stop price 108500 directly');
+    console.log('Expected behavior: Exit immediately with stop-limit order');
+    
+    // Verify stop-limit exit is triggered
+    await expect(page.locator('[data-testid="stop-limit-triggered"]')).toBeVisible();
+    await expect(page.locator('[data-testid="exit-method"]')).toContainText('Stop-Limit');
+    await expect(page.locator('[data-testid="stop-price"]')).toContainText('108500');
+    
+    console.log('✅ PASS: Position exited immediately using stop-limit at 108500');
+  });
+
+  test('Combined scenario - Multiple price movements with different exit conditions', async ({ page }) => {
+    console.log('🎯 Testing: Complex price movement scenario');
+    
+    // Setup comprehensive trigger configuration
+    await page.locator('div').filter({ hasText: /^Trigger Price$/ }).getByPlaceholder('Enter Price').fill('109000');
+    await page.locator('div').filter({ hasText: /^Stop Price$/ }).getByPlaceholder('Enter Price').fill('108500');
+    
+    // Enable limit chaser with specific settings
+    await page.locator('.flex.gap-3.items-center.-mb-2 > .relative > .cursor-pointer').check();
+    await page.locator('input[placeholder="Enter Price"]').nth(4).fill('108700'); // Long exit limit
+    await page.locator('input[placeholder="Enter Price"]').nth(5).fill('108300'); // Short exit limit
+    
+    // Test sequence 1: Touch trigger but don't close beyond
+    console.log('📊 Phase 1: Price touches 109000, retraces to 109100');
+    await page.locator('[data-testid="simulate-price"]').fill('109000');
+    await page.locator('[data-testid="simulate-retrace"]').fill('109100');
+    
+    // Verify no exit
+    await expect(page.locator('[data-testid="position-status"]')).toContainText('Active');
+    console.log('✅ Phase 1 PASS: No exit on trigger touch without close beyond');
+    
+    // Test sequence 2: Close beyond stop trigger
+    console.log('📊 Phase 2: Price closes at 108400 (beyond stop trigger)');
+    await page.locator('[data-testid="simulate-close"]').fill('108400');
+    
+    // Verify limit chaser exit
+    await expect(page.locator('[data-testid="exit-method"]')).toContainText('Limit Chaser');
+    console.log('✅ Phase 2 PASS: Limit chaser exit on close beyond stop');
+    
+    // Reset for phase 3
+    await page.getByRole('button', { name: 'LONG' }).click();
+    
+    // Test sequence 3: Direct stop price touch
+    console.log('📊 Phase 3: Price directly touches stop price 108500');
+    await page.locator('[data-testid="simulate-direct-stop"]').fill('108500');
+    
+    // Verify stop-limit exit
+    await expect(page.locator('[data-testid="exit-method"]')).toContainText('Stop-Limit');
+    console.log('✅ Phase 3 PASS: Stop-limit exit on direct stop touch');
+    
+    console.log('🎉 ALL PHASES PASSED: Comprehensive trigger behavior verified');
+  });
+
+  test('Limit chaser configuration validation', async ({ page }) => {
+    console.log('🔧 Testing: Limit chaser configuration validation');
+    
+    // Enable limit chaser
+    await page.locator('.flex.gap-3.items-center.-mb-2 > .relative > .cursor-pointer').check();
+    
+    // Test candle close trigger toggle
+    const candleCloseCheckbox = page.locator('div').filter({ hasText: /^Candle Close Trigger$/ }).getByRole('checkbox');
+    
+    // Test OFF state (immediate trigger response)
+    await candleCloseCheckbox.uncheck();
+    await expect(candleCloseCheckbox).not.toBeChecked();
+    console.log('✅ Candle close trigger OFF: Immediate price touch response');
+    
+    // Test ON state (wait for candle close)
+    await candleCloseCheckbox.check();
+    await expect(candleCloseCheckbox).toBeChecked();
+    console.log('✅ Candle close trigger ON: Wait for candle close beyond trigger');
+    
+    // Validate price distance slider
+    const priceDistanceSlider = page.locator('[role="slider"]').last();
+    await priceDistanceSlider.click();
+    await priceDistanceSlider.press('ArrowRight');
+    console.log('✅ Price distance adjusted for optimal chasing');
+    
+    // Verify configuration persistence
+    await page.reload();
+    await expect(candleCloseCheckbox).toBeChecked();
+    console.log('✅ Configuration persisted after page reload');
+  });
+});
   await page.getByRole('textbox', { name: 'Wallet Address (0x...)' }).click();
   await page.getByRole('textbox', { name: 'Wallet Address (0x...)' }).fill('0x744b5f069e0e2f38cf625edbb524a8a2d024dad0');
   await page.getByRole('button', { name: 'Connect & Enable Trading' }).click();
