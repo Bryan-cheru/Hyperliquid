@@ -259,47 +259,54 @@ const LimitChaser = ({ clicked, setClicked, onParametersChange }: Props) => {
                         {/* Simple Price Distance Slider */}
                         <div className="mb-6">
                             <h4 className="text-[#B0B0B0] text-sm mb-3">Price Distance</h4>
-                            <Slider.Root
-                                className="relative flex items-center select-none touch-none w-full h-8"
-                                min={0}
-                                max={5}
-                                step={0.1}
-                                value={[distance]}
-                                onValueChange={([val]) => setDistance(val)}
-                                disabled={!clicked}
-                            >
-                                <Slider.Track className="bg-[#E5E5E5] relative grow rounded-full h-2">
-                                    <Slider.Range className="absolute h-full bg-yellow-400 rounded-full" />
-                                </Slider.Track>
-                                <Slider.SliderThumb>
-                                    <svg xmlns="http://www.w3.org/2000/svg" className="outline-none" width="18" height="18" viewBox="0 0 16 16" fill="none">
-                                        <path d="M8 15.4998C12.1421 15.4998 15.5 12.1419 15.5 7.99986C15.5 3.8577 12.1421 0.499847 8 0.499847C3.85788 0.499847 0.5 3.8577 0.5 7.99986C0.5 12.1419 3.85788 15.4998 8 15.4998Z" fill="#F0B90B" />
-                                    </svg>
-                                </Slider.SliderThumb>
-                            </Slider.Root>
-                            <div className="flex justify-between text-sm text-white mt-1">
-                                <span>0%</span>
-                                <span>5%</span>
-                            </div>
-                            <div className="text-center mt-2">
+                            <div className="flex items-center gap-4">
+                                {/* Slider */}
+                                <div className="flex-1">
+                                    <Slider.Root
+                                        className="relative flex items-center select-none touch-none w-full h-8"
+                                        min={0}
+                                        max={5}
+                                        step={0.1}
+                                        value={[distance]}
+                                        onValueChange={([val]) => setDistance(val)}
+                                        disabled={!clicked}
+                                    >
+                                        <Slider.Track className="bg-[#E5E5E5] relative grow rounded-full h-2">
+                                            <Slider.Range className="absolute h-full bg-yellow-400 rounded-full" />
+                                        </Slider.Track>
+                                        <Slider.SliderThumb>
+                                            <svg xmlns="http://www.w3.org/2000/svg" className="outline-none" width="18" height="18" viewBox="0 0 16 16" fill="none">
+                                                <path d="M8 15.4998C12.1421 15.4998 15.5 12.1419 15.5 7.99986C15.5 3.8577 12.1421 0.499847 8 0.499847C3.85788 0.499847 0.5 3.8577 0.5 7.99986C0.5 12.1419 3.85788 15.4998 8 15.4998Z" fill="#F0B90B" />
+                                            </svg>
+                                        </Slider.SliderThumb>
+                                    </Slider.Root>
+                                    <div className="flex justify-between text-sm text-white mt-1">
+                                        <span>0%</span>
+                                        <span>5%</span>
+                                    </div>
+                                </div>
+                                
+                                {/* Or statement */}
                                 <span className="text-sm text-[rgba(255,255,255,0.70)]">or</span>
+                                
+                                {/* Manual Input */}
+                                <input 
+                                    type="number" 
+                                    step="0.1"
+                                    min="0"
+                                    max="5"
+                                    value={distance.toFixed(1)}
+                                    onChange={(e) => {
+                                        const val = parseFloat(e.target.value);
+                                        if (!isNaN(val) && val >= 0 && val <= 5) {
+                                            setDistance(val);
+                                        }
+                                    }}
+                                    disabled={!clicked}
+                                    placeholder="Enter %" 
+                                    className={`w-20 px-3 py-2 bg-[#373A45] border border-[#4A5568] rounded text-white text-center ${clicked ? "" : "bg-gray-800"}`}
+                                />
                             </div>
-                            <input 
-                                type="number" 
-                                step="0.1"
-                                min="0"
-                                max="5"
-                                value={distance.toFixed(1)}
-                                onChange={(e) => {
-                                    const val = parseFloat(e.target.value);
-                                    if (!isNaN(val) && val >= 0 && val <= 5) {
-                                        setDistance(val);
-                                    }
-                                }}
-                                disabled={!clicked}
-                                placeholder="Enter Distance %" 
-                                className={`w-full mt-2 px-3 py-2 bg-[#373A45] border border-[#4A5568] rounded text-white text-center ${clicked ? "" : "bg-gray-800"}`}
-                            />
                         </div>
 
                         {/* Price Distance Section - HIDDEN but logic preserved */}
