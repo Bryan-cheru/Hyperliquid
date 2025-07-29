@@ -24,6 +24,12 @@ export interface LimitChaserParams {
     distanceType: 'percentage' | 'absolute'; // Distance type
 }
 
+// Utility function to extract milliseconds from timeframe string
+const parseTimeframeToMs = (timeframe: string): number => {
+    const match = timeframe.match(/(\d+)ms/);
+    return match ? parseInt(match[1]) : 1000; // Default to 1000ms if parsing fails
+};
+
 // Enhanced LimitChaser component with basket order integration
 const LimitChaser = ({ clicked, setClicked, onParametersChange }: Props) => {
     const { connectedAccount, getPrice } = useTrading();
@@ -35,7 +41,7 @@ const LimitChaser = ({ clicked, setClicked, onParametersChange }: Props) => {
     const [updateInterval, setUpdateInterval] = useState<number>(30);
     const [maxChases, setMaxChases] = useState<number>(10);
     const [triggerOnCandleClose, setTriggerOnCandleClose] = useState<boolean>(true);
-    const [timeframe, setTimeframe] = useState<string>("15m");
+    const [timeframe, setTimeframe] = useState<string>("1000ms");
     
     // Add distance-based state variables
     const [useDistance, setUseDistance] = useState<boolean>(false); // Toggle between modes
@@ -142,27 +148,41 @@ const LimitChaser = ({ clicked, setClicked, onParametersChange }: Props) => {
                                         min="1"
                                         max="100"
                                         value={maxChases}
-                                        onChange={(e) => setMaxChases(parseInt(e.target.value) || 10)}
+                                        onChange={(e) => {
+                                            const value = parseInt(e.target.value) || 10;
+                                            // Validate max chases should not exceed 100
+                                            if (value > 100) {
+                                                setMaxChases(100);
+                                            } else if (value < 1) {
+                                                setMaxChases(1);
+                                            } else {
+                                                setMaxChases(value);
+                                            }
+                                        }}
                                         className="w-full px-2 py-1 bg-[#373A45] border border-[#4A5568] rounded text-white text-xs"
                                         disabled={!clicked}
                                     />
+                                    <span className="text-xs text-gray-400 mt-1">Max: 100</span>
                                 </div>
                             </div>
                             
                             {/* Trigger Settings */}
                             <div className="grid grid-cols-2 gap-4 mb-4">
                                 <div>
-                                    <label className="block text-xs text-gray-300 mb-1">Trigger Timeframe</label>
+                                    <label className="block text-xs text-gray-300 mb-1">Trigger Timeframe (Milliseconds)</label>
                                     <select
                                         value={timeframe}
                                         onChange={(e) => setTimeframe(e.target.value)}
                                         className="w-full px-2 py-1 bg-[#373A45] border border-[#4A5568] rounded text-white text-xs"
                                         disabled={!clicked}
                                     >
-                                        <option value="1m">1 Minute</option>
-                                        <option value="5m">5 Minutes</option>
-                                        <option value="15m">15 Minutes</option>
-                                        <option value="1h">1 Hour</option>
+                                        <option value="100ms">100 Milliseconds</option>
+                                        <option value="250ms">250 Milliseconds</option>
+                                        <option value="500ms">500 Milliseconds</option>
+                                        <option value="1000ms">1 Second (1000ms)</option>
+                                        <option value="2000ms">2 Seconds (2000ms)</option>
+                                        <option value="5000ms">5 Seconds (5000ms)</option>
+                                        <option value="10000ms">10 Seconds (10000ms)</option>
                                     </select>
                                 </div>
                                 <div className="flex items-center gap-2 pt-5">
@@ -329,48 +349,7 @@ const LimitChaser = ({ clicked, setClicked, onParametersChange }: Props) => {
                             </div>
                         </div>
 
-                        {/* Chaser Strategy Information */}
-                        <div className="flex flex-col border-t border-b border-[#373A45] pt-5 pb-10">
-                            <h1 className="text-white font-bold mb-2">Limit Chaser Strategy</h1>
-                            <div className="bg-[#1A1F2E] p-4 rounded border border-[#373A45]">
-                                <div className="space-y-3">
-                                    <div className="flex items-center gap-2">
-                                        <div className="w-2 h-2 bg-yellow-400 rounded-full"></div>
-                                        <p className="text-xs text-gray-300">
-                                            <span className="text-yellow-400 font-medium">Stop Trigger Price:</span> ${parseFloat(stopTriggerPrice) > 0 ? parseFloat(stopTriggerPrice).toLocaleString() : 'Not set'}
-                                        </p>
-                                    </div>
-                                    <div className="flex items-center gap-2">
-                                        <div className="w-2 h-2 bg-green-400 rounded-full"></div>
-                                        <p className="text-xs text-gray-300">
-                                            <span className="text-green-400 font-medium">Chaser Price:</span> ${parseFloat(chaserPrice) > 0 ? parseFloat(chaserPrice).toLocaleString() : 'Not set'}
-                                        </p>
-                                    </div>
-                                    <div className="flex items-center gap-2">
-                                        <div className="w-2 h-2 bg-blue-400 rounded-full"></div>
-                                        <p className="text-xs text-gray-300">
-                                            <span className="text-blue-400 font-medium">Strategy:</span> When price hits trigger → Close with limit order at chaser price
-                                        </p>
-                                    </div>
-                                    {parseFloat(stopTriggerPrice) > 0 && parseFloat(chaserPrice) > 0 && (
-                                        <div className="mt-3 p-2 bg-green-900/20 border border-green-500/30 rounded">
-                                            <p className="text-xs text-green-400">
-                                                ✅ Configuration Ready: Stop at ${parseFloat(stopTriggerPrice).toLocaleString()} → Limit exit at ${parseFloat(chaserPrice).toLocaleString()}
-                                            </p>
-                                        </div>
-                                    )}
-                                </div>
-                            </div>
-                            
-                            {/* <div className="mt-3 p-3 bg-[#1A1F2E] rounded border border-[#373A45]">
-                                <p className="text-xs text-gray-300">
-                                    <span className="text-yellow-400 font-medium">🎯 Distance Explanation:</span><br/>
-                                    The limit chaser will place orders at {manualDistance}% away from the current market price.
-                                    For longs: sell {manualDistance}% above market. For shorts: buy {manualDistance}% below market.
-                                    Orders update every {updateInterval} seconds, maximum {maxChases} times.
-                                </p>
-                            </div> */}
-                        </div>
+                      
                     </>
                 )}
             </div>
