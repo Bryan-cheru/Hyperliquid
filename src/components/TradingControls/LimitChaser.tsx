@@ -119,7 +119,7 @@ const LimitChaser = ({ clicked, setClicked, onParametersChange }: Props) => {
                     <>
                         {/* Simple Configuration Panel */}
                         <div className="mb-4">
-                            {/* Basic Settings */}
+                            {/* Timeframe and Update Interval */}
                             <div className="grid grid-cols-2 gap-4 mb-4">
                                 <div>
                                     <label className="block text-sm text-gray-300 mb-1">Trigger Timeframe (Milliseconds)</label>
@@ -138,6 +138,53 @@ const LimitChaser = ({ clicked, setClicked, onParametersChange }: Props) => {
                                         <option value="10000ms">10 Seconds (10000ms)</option>
                                     </select>
                                 </div>
+                                <div>
+                                    <label className="block text-sm text-gray-300 mb-1">Update Interval (seconds)</label>
+                                    <input
+                                        type="number"
+                                        min="5"
+                                        max="300"
+                                        value={updateInterval}
+                                        onChange={(e) => setUpdateInterval(parseInt(e.target.value) || 30)}
+                                        disabled={!clicked}
+                                        placeholder="Update Interval"
+                                        className={`w-full px-3 py-2 bg-[#373A45] border border-[#4A5568] rounded text-white text-center ${clicked ? "" : "bg-gray-800"}`}
+                                    />
+                                </div>
+                            </div>
+
+                            {/* Max Chases and Candle Close Trigger */}
+                            <div className="grid grid-cols-2 gap-4 mb-4">
+                                <div>
+                                    <label className="block text-sm text-gray-300 mb-1">Max Chases (≤100)</label>
+                                    <input
+                                        type="number"
+                                        min="1"
+                                        max="100"
+                                        value={maxChases}
+                                        onChange={(e) => {
+                                            const value = parseInt(e.target.value) || 10;
+                                            // Validate max chases should not exceed 100
+                                            if (value > 100) {
+                                                setMaxChases(100);
+                                            } else if (value < 1) {
+                                                setMaxChases(1);
+                                            } else {
+                                                setMaxChases(value);
+                                            }
+                                        }}
+                                        disabled={!clicked}
+                                        placeholder="Max Chases"
+                                        className={`w-full px-3 py-2 bg-[#373A45] border border-[#4A5568] rounded text-white text-center ${clicked ? "" : "bg-gray-800"}`}
+                                    />
+                                    {maxChases > 100 && (
+                                        <div className="mt-1 p-1 bg-orange-900/20 border border-orange-500/30 rounded">
+                                            <p className="text-xs text-orange-400">
+                                                ⚠️ Max: 100
+                                            </p>
+                                        </div>
+                                    )}
+                                </div>
                                 <div className="flex items-center gap-2 pt-5">
                                     <input
                                         type="checkbox"
@@ -149,53 +196,6 @@ const LimitChaser = ({ clicked, setClicked, onParametersChange }: Props) => {
                                     <label className="text-sm text-gray-300">Candle Close Trigger</label>
                                 </div>
                             </div>
-                        </div>
-                        
-                        {/* Update Interval Configuration */}
-                        <div className="mb-6">
-                            <label className="block text-sm text-gray-300 mb-2">Update Interval (seconds)</label>
-                            <input
-                                type="number"
-                                min="5"
-                                max="300"
-                                value={updateInterval}
-                                onChange={(e) => setUpdateInterval(parseInt(e.target.value) || 30)}
-                                disabled={!clicked}
-                                placeholder="Update Interval"
-                                className={`w-full px-3 py-2 bg-[#373A45] border border-[#4A5568] rounded text-white text-center ${clicked ? "" : "bg-gray-800"}`}
-                            />
-                        </div>
-                        
-                        {/* Max Chases Configuration */}
-                        <div className="mb-6">
-                            <label className="block text-sm text-gray-300 mb-2">Max Chases (≤100)</label>
-                            <input
-                                type="number"
-                                min="1"
-                                max="100"
-                                value={maxChases}
-                                onChange={(e) => {
-                                    const value = parseInt(e.target.value) || 10;
-                                    // Validate max chases should not exceed 100
-                                    if (value > 100) {
-                                        setMaxChases(100);
-                                    } else if (value < 1) {
-                                        setMaxChases(1);
-                                    } else {
-                                        setMaxChases(value);
-                                    }
-                                }}
-                                disabled={!clicked}
-                                placeholder="Max Chases"
-                                className={`w-full px-3 py-2 bg-[#373A45] border border-[#4A5568] rounded text-white text-center ${clicked ? "" : "bg-gray-800"}`}
-                            />
-                            {maxChases > 100 && (
-                                <div className="mt-2 p-2 bg-orange-900/20 border border-orange-500/30 rounded">
-                                    <p className="text-xs text-orange-400">
-                                        ⚠️ Max chases validation: Current value {maxChases} (Maximum allowed: 100)
-                                    </p>
-                                </div>
-                            )}
                         </div>
                         
                         {/* Filled or Cancel toggle */}
