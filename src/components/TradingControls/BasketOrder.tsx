@@ -104,8 +104,7 @@ const BasketOrder: React.FC<BasketOrderProps> = ({ clicked, setClicked }) => {
         
         // Create basket silently in background
         basketOrderManager.createBasket(autoBasketConfig).then((basketId) => {
-          console.log(`🤫 Auto-created hidden basket: ${basketId}`);
-          loadBaskets();
+                    loadBaskets();
         }).catch(console.error);
       }
     }
@@ -182,8 +181,7 @@ const BasketOrder: React.FC<BasketOrderProps> = ({ clicked, setClicked }) => {
       };
 
       const basketId = await basketOrderManager.createBasket(basketConfig);
-      console.log(`✅ Basket created: ${basketId}`);
-      
+            
       // Execute the basket immediately
       await basketOrderManager.executeBasketEntry(basketId);
       

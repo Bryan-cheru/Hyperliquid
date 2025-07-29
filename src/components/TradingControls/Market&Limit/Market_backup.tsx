@@ -65,10 +65,7 @@ const Market = ({ selectedOrderType = "Market" }: MarketProps) => {
     };
 
     // Debug logging to trace order type
-    console.log('🔍 Market Component - selectedOrderType:', selectedOrderType);
-    console.log('🔍 Market Component - orderType:', orderType);
-    console.log('🔍 Market Component - tradingParams:', tradingParams);
-
+            
     return (
         <div className="flex flex-col gap-6">
             {/* Leverage Section */}

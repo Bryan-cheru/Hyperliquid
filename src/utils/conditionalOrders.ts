@@ -38,8 +38,7 @@ export function createConditionalOrder(
   config: ConditionalOrderConfig,
   assetIndex: number
 ): HyperLiquidTriggerOrder {
-  console.log('🎯 Creating conditional order:', config);
-  
+    
   // Determine execution price
   let executionPrice: string;
   if (config.isMarket) {
@@ -82,8 +81,7 @@ export function createConditionalOrder(
     }
   };
   
-  console.log('✅ Conditional order created:', JSON.stringify(order, null, 2));
-  return order;
+    return order;
 }
 
 /**
@@ -148,15 +146,7 @@ export function createBracketOrder(
   stopLoss: ConditionalOrderConfig;
   takeProfit: ConditionalOrderConfig;
 } {
-  console.log('🎯 Creating bracket order:', {
-    symbol,
-    side,
-    quantity,
-    stopLossPrice,
-    takeProfitPrice,
-    isMarketExecution
-  });
-
+  
   return {
     stopLoss: createStopLossOrder(symbol, side, quantity, stopLossPrice, isMarketExecution),
     takeProfit: createTakeProfitOrder(symbol, side, quantity, takeProfitPrice, isMarketExecution)

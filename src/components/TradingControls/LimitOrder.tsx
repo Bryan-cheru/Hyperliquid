@@ -22,17 +22,14 @@ export const LimitOrder = ({ onPriceChange }: LimitOrderProps) => {
         }
         
         const currentPrice = getPrice(symbol);
-        console.log('🔍 LimitOrder auto-fill - symbol:', symbol, 'currentPrice:', currentPrice);
-        
+                
         if (currentPrice && (limitPrice === "" || limitPrice === "0")) {
             const priceString = currentPrice.toString();
             setLimitPrice(priceString);
-            console.log('🔍 LimitOrder auto-fill - setting price:', priceString);
-            
+                        
             if (onPriceChange) {
                 onPriceChange(currentPrice);
-                console.log('🔍 LimitOrder auto-fill - called onPriceChange with:', currentPrice);
-            }
+                            }
         }
     }, [connectedAccount?.pair, getPrice, limitPrice, onPriceChange]);
 
@@ -59,12 +56,10 @@ export const LimitOrder = ({ onPriceChange }: LimitOrderProps) => {
     const handlePriceChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const newPrice = e.target.value;
         setLimitPrice(newPrice);
-        console.log('🔍 LimitOrder handlePriceChange - newPrice:', newPrice);
-        
+                
         if (onPriceChange && newPrice && !isNaN(Number(newPrice)) && Number(newPrice) > 0) {
             onPriceChange(Number(newPrice));
-            console.log('🔍 LimitOrder handlePriceChange - called onPriceChange with:', Number(newPrice));
-        }
+                    }
     };
 
   return (

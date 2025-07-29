@@ -101,8 +101,7 @@ const AccountsWrapper = ({ setAccNum, setModal }: Props) => {
       }
     }));
     
-    console.log(`📊 Multi-account status: ${connectedAgentAccounts.length} connected accounts`);
-  }, [agentAccounts, getConnectedAccounts]);
+      }, [agentAccounts, getConnectedAccounts]);
 
   // Toggle selection for individual account
   const handleToggleSelect = (id: number) => {

@@ -53,8 +53,7 @@ const Account = ({ acc, id, getId, getName }: AccountProps) => {
   const fetchTradingPairs = async () => {
     setLoadingPairs(true);
     try {
-      console.log('🔍 Fetching available trading pairs from HyperLiquid...');
-      
+            
       const response = await fetch('https://api.hyperliquid.xyz/info', {
         method: 'POST',
         headers: {
@@ -94,8 +93,7 @@ const Account = ({ acc, id, getId, getName }: AccountProps) => {
         setSubscriberPair(pairs[1]);
       }
       
-      console.log('✅ Successfully loaded', pairs.length, 'trading pairs');
-    } catch (error) {
+          } catch (error) {
       console.error('❌ Error fetching trading pairs:', error);
       
       // Fallback to default pairs on error
@@ -116,14 +114,12 @@ const Account = ({ acc, id, getId, getName }: AccountProps) => {
   // Log pair selections for debugging
   useEffect(() => {
     if (masterChecked && masterPair) {
-      console.log(`📊 Master pair selected for Account ${acc.num}:`, masterPair);
-    }
+          }
   }, [masterPair, masterChecked, acc.num]);
 
   useEffect(() => {
     if (subscriberChecked && subscriberPair) {
-      console.log(`📊 Subscriber pair selected for Account ${acc.num}:`, subscriberPair);
-    }
+          }
   }, [subscriberPair, subscriberChecked, acc.num]);
 
   // Effect to close the card dropdown when clicking outside
@@ -150,21 +146,18 @@ const Account = ({ acc, id, getId, getName }: AccountProps) => {
       // Refresh account data every 30 seconds when connected
       intervalId = setInterval(async () => {
         try {
-          console.log(`🔄 Periodic refresh for Account ${acc.num}...`);
-          await refreshAccountData(acc.num);
+                    await refreshAccountData(acc.num);
         } catch (error) {
           console.error(`❌ Error during periodic refresh for Account ${acc.num}:`, error);
         }
       }, 30000); // 30 seconds
       
-      console.log(`⏰ Started periodic data refresh for Account ${acc.num}`);
-    }
+          }
     
     return () => {
       if (intervalId) {
         clearInterval(intervalId);
-        console.log(`⏹️ Stopped periodic data refresh for Account ${acc.num}`);
-      }
+              }
     };
   }, [connectionStatus, acc.num, refreshAccountData]);
 
@@ -188,18 +181,14 @@ const Account = ({ acc, id, getId, getName }: AccountProps) => {
       return;
     }
 
-    console.log('🔗 Connecting with user credentials...');
-    console.log('  Wallet address:', publicKey.trim());
-    console.log('  Private key provided:', '✓');
-
+            
     setIsConnecting(true);
     setErrorMessage("");
     setConnectionStatus("idle");
 
     try {
       // First, verify that the private key actually corresponds to the provided wallet address
-      console.log('🔍 Verifying private key matches wallet address...');
-      const verification = await verifyPrivateKeyToAddress(privateKey.trim(), publicKey.trim());
+            const verification = await verifyPrivateKeyToAddress(privateKey.trim(), publicKey.trim());
       
       if (!verification.isValid) {
         console.error('Private key verification failed:', verification.error);
@@ -209,18 +198,12 @@ const Account = ({ acc, id, getId, getName }: AccountProps) => {
         return;
       }
       
-      console.log('Private key verification successful');
-      console.log('  Expected address:', publicKey.trim());
-      console.log('  Derived address:', verification.actualAddress);
-
+                  
       // For agent wallets, we need to approve this wallet to trade on behalf of subaccounts
-      console.log('🔗 Setting up agent wallet for subaccount trading...');
-      
+            
       // Test if this agent wallet is already approved by trying to fetch account data
-      console.log('� Testing agent wallet permissions...');
-      // Test if this agent wallet is already approved by trying to fetch account data
-      console.log('🔍 Testing agent wallet permissions...');
-      
+            // Test if this agent wallet is already approved by trying to fetch account data
+            
       // For agent wallets, we just need to verify the wallet exists
       // The actual subaccount data would be queried separately if needed
       const accountResponse = await fetch('https://api.hyperliquid.xyz/info', {
@@ -237,10 +220,7 @@ const Account = ({ acc, id, getId, getName }: AccountProps) => {
       if (accountResponse.ok) {
         const accountData = await accountResponse.json();
         
-        console.log('Agent wallet connection successful');
-        console.log('Account Data:', accountData);
-        console.log('Agent wallet verified successfully');
-        
+                                
         // For agent accounts, we just need to verify the keys work
         // The master account handles displaying balance/PnL data
         setConnectionStatus("connected");
@@ -248,9 +228,7 @@ const Account = ({ acc, id, getId, getName }: AccountProps) => {
         setErrorMessage("");
         setClicked(true); // Keep card expanded when connected
         
-        console.log('Agent wallet connected successfully with Python-compatible signing');
-        console.log('🔐 Signature verification should now work correctly with HyperLiquid');
-        
+                        
         // Add to multi-account system
         const multiAgentAccountData: MultiAgentAccount = {
           accountId: acc.num,
@@ -271,14 +249,11 @@ const Account = ({ acc, id, getId, getName }: AccountProps) => {
         
         // Add to multi-account context
         addAgentAccount(multiAgentAccountData);
-        console.log('✅ Agent account added to multi-account system:', multiAgentAccountData.accountName);
-        
+                
         // Refresh account data to fetch real balance, PnL, leverage from HyperLiquid API
         try {
-          console.log('🔄 Refreshing account data to fetch real balance and PnL...');
-          await refreshAccountData(acc.num);
-          console.log('✅ Real account data fetched successfully');
-        } catch (error) {
+                    await refreshAccountData(acc.num);
+                  } catch (error) {
           console.error('❌ Error refreshing account data:', error);
         }
         
@@ -293,15 +268,12 @@ const Account = ({ acc, id, getId, getName }: AccountProps) => {
         };
         
         setAgentAccount(agentAccountData);
-        console.log('Agent account ready for trade execution (backward compatibility)');
-        
+                
         // Log selected trading pairs if any
         if (masterChecked && masterPair) {
-          console.log('Master pair selected:', masterPair);
-        }
+                  }
         if (subscriberChecked && subscriberPair) {
-          console.log('Subscriber pair selected:', subscriberPair);
-        }
+                  }
         
       } else {
         throw new Error(`API request failed. Status: ${accountResponse.status}`);

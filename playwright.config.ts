@@ -25,14 +25,22 @@ export default defineConfig({
     /* Collect trace when retrying the failed test. See https://playwright.dev/docs/trace-viewer */
     trace: 'on-first-retry',
     
-    /* Record video for all tests */
-    video: 'on',
+    /* Record video for all tests with slower speed */
+    video: {
+      mode: 'on',
+      size: { width: 1280, height: 720 }
+    },
     
     /* Run tests in headed mode to see the browser */
     headless: false,
     
-    /* Slow down actions for better video */
+    /* Slow down actions for better video recording */
     actionTimeout: 30000,
+    
+    /* Add delays between actions for better video visibility */
+    launchOptions: {
+      slowMo: 1000, // Add 1 second delay between actions
+    }
   },
 
   /* Configure projects for major browsers */

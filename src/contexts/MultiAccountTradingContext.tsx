@@ -106,8 +106,7 @@ export const MultiAccountTradingProvider = ({ children }: { children: ReactNode 
     setAgentAccounts(prev => {
       const newMap = new Map(prev);
       newMap.set(account.accountId, account);
-      console.log(`✅ Added agent account ${account.accountId}: ${account.accountName}`);
-      return newMap;
+            return newMap;
     });
   }, []);
 
@@ -116,8 +115,7 @@ export const MultiAccountTradingProvider = ({ children }: { children: ReactNode 
     setAgentAccounts(prev => {
       const newMap = new Map(prev);
       newMap.delete(accountId);
-      console.log(`❌ Removed agent account ${accountId}`);
-      return newMap;
+            return newMap;
     });
     
     // Reset active account if it was removed
@@ -133,8 +131,7 @@ export const MultiAccountTradingProvider = ({ children }: { children: ReactNode 
       const existingAccount = newMap.get(accountId);
       if (existingAccount) {
         newMap.set(accountId, { ...existingAccount, ...updates });
-        console.log(`🔄 Updated agent account ${accountId}`);
-      }
+              }
       return newMap;
     });
   }, []);
@@ -160,8 +157,7 @@ export const MultiAccountTradingProvider = ({ children }: { children: ReactNode 
     if (!account || !account.publicKey) return;
 
     try {
-      console.log(`🔄 Refreshing data for account ${accountId}`);
-      
+            
       // Fetch account-specific data including real account balance
       const [positions, openOrders, tradeHistory, accountBalance] = await Promise.all([
         marketDataService.fetchPositions(account.publicKey),
@@ -211,15 +207,13 @@ export const MultiAccountTradingProvider = ({ children }: { children: ReactNode 
 
   // Refresh all accounts data
   const refreshAllAccountsData = useCallback(async () => {
-    console.log(`🔄 Refreshing data for all ${agentAccounts.size} accounts`);
-    
+        
     const promises = Array.from(agentAccounts.keys()).map(accountId => 
       refreshAccountData(accountId)
     );
     
     await Promise.allSettled(promises);
-    console.log(`✅ Completed data refresh for all accounts`);
-  }, [agentAccounts, refreshAccountData]);
+      }, [agentAccounts, refreshAccountData]);
 
   // Get current price for a symbol
   const getPrice = useCallback((symbol: string) => {
@@ -242,8 +236,7 @@ export const MultiAccountTradingProvider = ({ children }: { children: ReactNode 
     setIsTrading(true);
     
     try {
-      console.log(`🚀 Executing order on account ${accountId}: ${order.side} ${order.quantity} ${order.symbol}`);
-      
+            
       // Use the same order execution logic as the original context
       // Get asset index for the trading pair
       const assetSymbol = order.symbol.replace('/USDT', '').replace('/USDC', '').replace('-USD', '');
@@ -326,8 +319,7 @@ export const MultiAccountTradingProvider = ({ children }: { children: ReactNode 
       const result = await response.json();
       
       if (result.status === "ok") {
-        console.log(`✅ Order executed successfully on account ${accountId}`);
-        // Refresh this account's data
+                // Refresh this account's data
         setTimeout(() => refreshAccountData(accountId), 1000);
         return { 
           success: true, 
@@ -335,8 +327,7 @@ export const MultiAccountTradingProvider = ({ children }: { children: ReactNode 
           orderId: result.response?.data?.statuses?.[0]?.resting?.oid || 'unknown'
         };
       } else {
-        console.log(`❌ Order failed on account ${accountId}: ${result.response || result.error}`);
-        return { success: false, message: `Failed on ${account.accountName}: ${result.response || result.error}` };
+                return { success: false, message: `Failed on ${account.accountName}: ${result.response || result.error}` };
       }
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
@@ -361,8 +352,7 @@ export const MultiAccountTradingProvider = ({ children }: { children: ReactNode 
       };
     }
 
-    console.log(`🚀 Executing order on ${connectedAccounts.length} accounts: ${order.side} ${order.quantity} ${order.symbol}`);
-    
+        
     const results = await Promise.all(
       connectedAccounts.map(account => 
         executeOrderOnAccount(order, account.accountId)
@@ -391,8 +381,7 @@ export const MultiAccountTradingProvider = ({ children }: { children: ReactNode 
     }
 
     // Implementation would close all positions for this specific account
-    console.log(`🔒 Closing all positions on account ${accountId}`);
-    
+        
     // This would use the account's private key to close positions
     // For now, return a placeholder
     return { success: true, message: `Closed all positions on ${account.accountName}` };
@@ -430,8 +419,7 @@ export const MultiAccountTradingProvider = ({ children }: { children: ReactNode 
       return { success: false, message: `Account ${accountId} not found` };
     }
 
-    console.log(`❌ Canceling all orders on account ${accountId}`);
-    return { success: true, message: `Canceled all orders on ${account.accountName}` };
+        return { success: true, message: `Canceled all orders on ${account.accountName}` };
   }, [agentAccounts]);
 
   // Cancel all orders on all accounts

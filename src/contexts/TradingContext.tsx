@@ -122,9 +122,7 @@ export const TradingProvider = ({ children }: { children: ReactNode }) => {
   // Market data functions
   const refreshMarketData = useCallback(async () => {
     try {
-      console.log('🔄 Fetching market data...');
       const prices = await marketDataService.fetchMarketPrices();
-      console.log(`📊 Received ${prices.size} prices from market data service`);
       setMarketPrices(prices);
     } catch (error) {
       console.error('Error refreshing market data:', error);
@@ -141,7 +139,6 @@ export const TradingProvider = ({ children }: { children: ReactNode }) => {
         // Check if we have locally tracked order type for this order
         const localOrderType = orderTypeRegistry.get(trade.orderId);
         if (localOrderType) {
-          console.log('🔄 Using registered order type:', localOrderType, 'for order:', trade.orderId);
           return { ...trade, type: localOrderType };
         }
         return trade;
@@ -177,7 +174,6 @@ export const TradingProvider = ({ children }: { children: ReactNode }) => {
     // Try exact symbol first
     let price = marketPrices.get(symbol);
     if (price) {
-      console.log(`💰 Found price for ${symbol}: $${price.price}`);
       return price.price;
     }
     
@@ -187,14 +183,11 @@ export const TradingProvider = ({ children }: { children: ReactNode }) => {
       for (const variant of variants) {
         price = marketPrices.get(variant);
         if (price) {
-          console.log(`💰 Found BTC price via ${variant}: $${price.price}`);
           return price.price;
         }
       }
     }
     
-    console.warn(`⚠️ No price found for symbol: ${symbol}`);
-    console.log(`Available symbols:`, Array.from(marketPrices.keys()).slice(0, 10));
     return null;
   }, [marketPrices]);
 
@@ -214,7 +207,6 @@ export const TradingProvider = ({ children }: { children: ReactNode }) => {
   // Refresh all data at once
   const refreshAllData = useCallback(async () => {
     if (!connectedAccount?.publicKey) return;
-    console.log('🔄 Refreshing all account data...');
     try {
       await Promise.all([
         refreshMarketData(),
@@ -222,7 +214,6 @@ export const TradingProvider = ({ children }: { children: ReactNode }) => {
         refreshOpenOrders(),
         refreshPositions()
       ]);
-      console.log('✅ All account data refreshed successfully');
     } catch (error) {
       console.error('❌ Error refreshing all data:', error);
     }
@@ -267,7 +258,6 @@ export const TradingProvider = ({ children }: { children: ReactNode }) => {
       // Get current asset price
       const currentPrice = getPrice(assetSymbol) || 0;
       if (currentPrice === 0) {
-        console.warn('⚠️ Could not get current price for margin calculation');
         return { hasEnough: false, required: 0, available: 0 };
       }
 
@@ -278,7 +268,6 @@ export const TradingProvider = ({ children }: { children: ReactNode }) => {
       // Fetch real account balance from HyperLiquid API
       let availableMargin = 0;
       try {
-        console.log('💰 Fetching real account balance from HyperLiquid...');
         const response = await fetch('https://api.hyperliquid.xyz/info', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -293,18 +282,14 @@ export const TradingProvider = ({ children }: { children: ReactNode }) => {
           // Extract available margin from the account data
           if (accountData && accountData.marginSummary) {
             availableMargin = parseFloat(accountData.marginSummary.accountValue || '0');
-            console.log('✅ Real account balance:', availableMargin);
           } else if (accountData && accountData.withdrawable) {
             // Alternative field for available balance
             availableMargin = parseFloat(accountData.withdrawable || '0');
-            console.log('✅ Withdrawable balance:', availableMargin);
           } else {
-            console.warn('⚠️ Could not parse account balance, using fallback');
             // Use a reasonable fallback for small test orders
             availableMargin = 20; // Based on your $20 account balance shown in screenshot
           }
         } else {
-          console.warn('⚠️ Failed to fetch account balance, using fallback');
           availableMargin = 20; // Based on your $20 account balance
         }
       } catch (error) {
@@ -312,17 +297,6 @@ export const TradingProvider = ({ children }: { children: ReactNode }) => {
         // Use fallback based on your actual balance
         availableMargin = 20; // Based on your $20 account balance
       }
-
-      console.log('💰 Margin Check:', {
-        asset: assetSymbol,
-        side,
-        quantity,
-        currentPrice: currentPrice.toLocaleString(),
-        leverage: `${leverage}x`,
-        positionValue: `$${positionValue.toFixed(2)}`,
-        requiredMargin: `$${requiredMargin.toFixed(2)}`,
-        availableMargin: `$${availableMargin.toFixed(2)}`
-      });
 
       return {
         hasEnough: availableMargin >= requiredMargin,
@@ -364,12 +338,7 @@ export const TradingProvider = ({ children }: { children: ReactNode }) => {
       }
     }
     
-    console.log(`🔄 Creating ${splitCount} split orders:`);
-    console.log(`   Total quantity: ${totalQuantity}`);
-    console.log(`   Quantity per split: ${quantityPerSplit.toFixed(6)}`);
-    console.log(`   Price range: $${minPrice.toFixed(2)} - $${maxPrice.toFixed(2)}`);
-    console.log(`   Scale type: ${order.scaleType}`);
-    
+                        
     for (let i = 0; i < splitCount; i++) {
       let splitPrice: number;
       
@@ -407,8 +376,7 @@ export const TradingProvider = ({ children }: { children: ReactNode }) => {
       };
       
       orders.push(splitOrder);
-      console.log(`   Split ${i + 1}: ${quantityPerSplit.toFixed(6)} @ $${splitPrice.toFixed(2)}`);
-    }
+          }
     
     return orders;
   };
@@ -432,8 +400,7 @@ export const TradingProvider = ({ children }: { children: ReactNode }) => {
     try {
       // Handle order splitting if enabled
       if (order.orderSplit && order.splitCount && order.splitCount > 1) {
-        console.log('🔄 Order splitting enabled - creating multiple orders');
-        const splitOrders = createSplitOrders(order);
+                const splitOrders = createSplitOrders(order);
         
         let successCount = 0;
         let failedCount = 0;
@@ -442,8 +409,7 @@ export const TradingProvider = ({ children }: { children: ReactNode }) => {
         // Execute split orders sequentially with small delays
         for (let i = 0; i < splitOrders.length; i++) {
           const splitOrder = splitOrders[i];
-          console.log(`📦 Executing split order ${i + 1}/${splitOrders.length}`);
-          
+                    
           try {
             // Add small delay between orders to avoid rate limiting
             if (i > 0) {
@@ -496,26 +462,9 @@ export const TradingProvider = ({ children }: { children: ReactNode }) => {
     }
     
     try {
-      console.log('🚀 Executing HyperLiquid order with UI parameters:', order);
-      console.log('📊 Complete Order Details:');
-      console.log('   Symbol:', order.symbol);
-      console.log('   Side:', order.side);
-      console.log('   Order Type:', order.orderType);
-      console.log('   Quantity:', order.quantity);
-      console.log('   Leverage:', order.leverage);
-      console.log('   Price:', order.price || 'Market');
-      console.log('   Stop Loss:', order.stopLoss ? `${order.stopLoss * 100}%` : 'None');
-      console.log('   Stop Price:', order.stopPrice || 'None');
-      console.log('   Order Split:', order.orderSplit ? 'Yes' : 'No');
-      if (order.orderSplit) {
-        console.log('   Split Count:', order.splitCount);
-        console.log('   Min Price:', order.minPrice);
-        console.log('   Max Price:', order.maxPrice);
-        console.log('   Scale Type:', order.scaleType);
-      }
-      console.log('🔗 Using agent wallet:', agentAccount.publicKey);
-      console.log('📈 Trading on behalf of subaccount (if applicable)');
-      
+                                                                        if (order.orderSplit) {
+                                      }
+                  
       // Get asset index for the trading pair
       const assetSymbol = order.symbol.replace('/USDT', '').replace('/USDC', '').replace('-USD', '');
       
@@ -524,8 +473,7 @@ export const TradingProvider = ({ children }: { children: ReactNode }) => {
       let assetIndex = -1;
       
       try {
-        console.log('🔍 Fetching asset metadata for:', assetSymbol);
-        const metaResponse = await fetch('https://api.hyperliquid.xyz/info', {
+                const metaResponse = await fetch('https://api.hyperliquid.xyz/info', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ type: "meta" })
@@ -548,8 +496,7 @@ export const TradingProvider = ({ children }: { children: ReactNode }) => {
           throw new Error(`Asset ${assetSymbol} not found in HyperLiquid universe`);
         }
         
-        console.log('✅ Found asset', assetSymbol, 'at index', assetIndex);
-        
+                
       } catch (error) {
         console.error('❌ Error fetching asset metadata:', error);
         return {
@@ -570,14 +517,12 @@ export const TradingProvider = ({ children }: { children: ReactNode }) => {
         if (currentPrice <= 0) {
           console.warn('⚠️ Market price is 0, using fallback price for market order');
           currentPrice = 120000; // Use current BTC price (~$120k) as fallback for market orders
-          console.log(`🔄 Using fallback BTC price: $${currentPrice.toLocaleString()}`);
-        }
+                  }
       }
 
       if (order.orderType === "market") {
         // MARKET ORDERS: Use extreme prices to guarantee execution
-        console.log(`📈 Processing MARKET ${order.side.toUpperCase()} order`);
-        
+                
         if (order.side === "buy") {
           // Market BUY: Price above market to ensure fill - use very high price if market data unavailable
           orderPrice = Math.round(currentPrice > 0 ? currentPrice * 1.05 : 999999).toString();
@@ -589,39 +534,30 @@ export const TradingProvider = ({ children }: { children: ReactNode }) => {
         // Use IOC (Immediate or Cancel) for market orders
         timeInForce = { limit: { tif: "Ioc" } };
         
-        console.log(`   Market price: $${currentPrice > 0 ? currentPrice.toLocaleString() : 'unavailable'}`);
-        console.log(`   Order price: $${parseFloat(orderPrice).toLocaleString()} (${order.side === "buy" ? "above" : "below"} market)`);
-        
+                        
       } else {
         // LIMIT ORDERS: Use exact specified price or calculate reasonable default
-        console.log(`🎯 Processing LIMIT ${order.side.toUpperCase()} order`);
-        
+                
         if (order.price && order.price > 0) {
           orderPrice = Math.round(order.price).toString();
-          console.log(`   Using specified limit price: $${orderPrice}`);
-        } else {
+                  } else {
           // No price specified - calculate reasonable limit price based on market
           if (currentPrice <= 0) {
             currentPrice = 120000; // Fallback BTC price
-            console.log(`🔄 Using fallback BTC price for limit calculation: $${currentPrice.toLocaleString()}`);
-          }
+                      }
           
           // Set limit price slightly off market for better execution probability
           if (order.side === "buy") {
             orderPrice = Math.round(currentPrice * 0.99).toString(); // 1% below market for buy
-            console.log(`   Calculated buy limit price: $${orderPrice} (1% below market)`);
-          } else {
+                      } else {
             orderPrice = Math.round(currentPrice * 1.01).toString(); // 1% above market for sell
-            console.log(`   Calculated sell limit price: $${orderPrice} (1% above market)`);
-          }
+                      }
         }
         
         // Use GTC (Good Till Canceled) for limit orders
         timeInForce = { limit: { tif: "Gtc" } };
         
-        console.log(`   Market price: $${currentPrice.toLocaleString()}`);
-        console.log(`   Limit price: $${parseFloat(orderPrice).toLocaleString()}`);
-        
+                        
         // Validate limit order price makes sense
         const priceDiff = ((parseFloat(orderPrice) - currentPrice) / currentPrice) * 100;
         if (order.side === "buy" && parseFloat(orderPrice) > currentPrice * 1.1) {
@@ -683,8 +619,7 @@ export const TradingProvider = ({ children }: { children: ReactNode }) => {
       if (order.side === "buy") {
         // For very small test orders, skip margin validation to allow testing
         if (order.quantity <= 0.001) { // Skip margin check for orders <= 0.001 BTC
-          console.log('✅ Skipping margin check for small test order (quantity <= 0.001 BTC)');
-        } else {
+                  } else {
           const marginCheck = await checkAccountMargin(assetSymbol, order.quantity, order.leverage || 1, order.side);
           if (!marginCheck.hasEnough) {
             const shortfall = marginCheck.required - marginCheck.available;
@@ -704,12 +639,7 @@ export const TradingProvider = ({ children }: { children: ReactNode }) => {
       let orderAction: any;
 
       if (order.orderType === "conditional" && order.conditionalType && order.triggerPrice) {
-        console.log('🎯 Creating conditional order:', {
-          type: order.conditionalType,
-          triggerPrice: order.triggerPrice,
-          isMarket: order.isMarketExecution ?? true
-        });
-
+        
         // Create conditional order configuration
         const conditionalConfig: ConditionalOrderConfig = {
           symbol: assetSymbol,
@@ -741,8 +671,7 @@ export const TradingProvider = ({ children }: { children: ReactNode }) => {
           grouping: "na"
         };
 
-        console.log('✅ Conditional order action created:', JSON.stringify(orderAction, null, 2));
-
+        
       } else {
         // Standard market/limit order
         orderAction = {
@@ -758,19 +687,16 @@ export const TradingProvider = ({ children }: { children: ReactNode }) => {
           grouping: "na"
         };
 
-        console.log('📋 Standard order action created:', JSON.stringify(orderAction, null, 2));
-      }
+              }
 
       // Prepare HyperLiquid order payload for direct account trading
       const nonce = Date.now();
       
-      console.log('🔐 Signing order with nonce:', nonce);
-      
+            
       let signature;
       try {
         signature = await signOrderAction(orderAction, nonce, agentAccount.privateKey, undefined);
-        console.log('✅ Order signature generated successfully');
-      } catch (signError) {
+              } catch (signError) {
         console.error('❌ Error signing order:', signError);
         return {
           success: false,
@@ -800,14 +726,10 @@ export const TradingProvider = ({ children }: { children: ReactNode }) => {
       logOrderDetails(orderPayload as { action: any; nonce: number; signature: any; vaultAddress: null });
       
       // Using Python-compatible msgpack and EIP-712 signing for HyperLiquid integration
-      console.log('✅ Order signed with Python-compatible msgpack and EIP-712 signature');
-      
+            
       // Send order to HyperLiquid API
       try {
-        console.log('🚀 Sending order to HyperLiquid API...');
-        console.log('📍 Using agent wallet for API call:', agentAccount.publicKey);
-        console.log('📦 Final Payload Being Sent:', JSON.stringify(orderPayload, null, 2));
-        
+                                
         const response = await fetch('https://api.hyperliquid.xyz/exchange', {
           method: 'POST',
           headers: { 
@@ -818,8 +740,7 @@ export const TradingProvider = ({ children }: { children: ReactNode }) => {
 
         // Parse response
         const responseText = await response.text();
-        console.log('📥 Raw HyperLiquid Response:', response.status, responseText);
-
+        
         let result;
         try {
           result = JSON.parse(responseText);
@@ -873,8 +794,7 @@ export const TradingProvider = ({ children }: { children: ReactNode }) => {
         }
 
         // Process successful response according to HyperLiquid docs
-        console.log('📊 HyperLiquid API Response:', result);
-        
+                
         if (result.status === "ok") {
           // Extract order ID from response structure
           const orderData = result.response?.data;
@@ -904,16 +824,14 @@ export const TradingProvider = ({ children }: { children: ReactNode }) => {
             }
           }
           
-          console.log('✅ Order successful:', { orderId, orderStatus });
-          
+                    
           // Register the order type for future reference with multiple ID variations
           setOrderTypeRegistry(prev => {
             const newRegistry = new Map(prev);
             
             // Register with the primary order ID
             newRegistry.set(orderId, order.orderType);
-            console.log('📝 Registered order type:', { orderId, type: order.orderType });
-            
+                        
             // Also register with additional ID formats that might be used in trade history
             if (orderData?.statuses?.[0]) {
               const status = orderData.statuses[0];
@@ -921,28 +839,24 @@ export const TradingProvider = ({ children }: { children: ReactNode }) => {
               // Register with resting order ID if available
               if (status.resting?.oid && status.resting.oid.toString() !== orderId) {
                 newRegistry.set(status.resting.oid.toString(), order.orderType);
-                console.log('📝 Also registered with resting OID:', status.resting.oid.toString());
-              }
+                              }
               
               // Register with filled order ID if available
               if (status.filled?.oid && status.filled.oid.toString() !== orderId) {
                 newRegistry.set(status.filled.oid.toString(), order.orderType);
-                console.log('📝 Also registered with filled OID:', status.filled.oid.toString());
-              }
+                              }
               
               // Register with transaction ID if available
               if (status.filled?.tid) {
                 newRegistry.set(status.filled.tid.toString(), order.orderType);
-                console.log('📝 Also registered with TID:', status.filled.tid.toString());
-              }
+                              }
             }
             
             return newRegistry;
           });
           
           // Refresh all relevant data after successful trade
-          console.log('🔄 Refreshing account data after successful trade...');
-          try {
+                    try {
             await refreshAllData();
           } catch (refreshError) {
             console.warn('⚠️ Failed to refresh data after trade:', refreshError);
@@ -1074,8 +988,7 @@ export const TradingProvider = ({ children }: { children: ReactNode }) => {
     setIsTrading(true);
     
     try {
-      console.log('🔍 Fetching positions for agent account:', agentAccount.publicKey);
-      
+            
       // First, fetch all open positions using the agent account
       const positionsResponse = await fetch('https://api.hyperliquid.xyz/info', {
         method: 'POST',
@@ -1091,8 +1004,7 @@ export const TradingProvider = ({ children }: { children: ReactNode }) => {
       }
 
       const positionsData = await positionsResponse.json();
-      console.log('📊 Raw positions data:', positionsData);
-      
+            
       // Better position filtering - check for non-zero positions
       const openPositions = positionsData.assetPositions?.filter(
         (pos: { position: { szi: string; coin: string } }) => {
@@ -1101,12 +1013,7 @@ export const TradingProvider = ({ children }: { children: ReactNode }) => {
         }
       ) || [];
 
-      console.log(`Found ${openPositions.length} open positions:`, openPositions.map((p: any) => ({
-        coin: p.position.coin,
-        size: p.position.szi,
-        value: p.position.positionValue
-      })));
-
+      
       if (openPositions.length === 0) {
         return { success: true, message: "No open positions found to close" };
       }
@@ -1124,8 +1031,7 @@ export const TradingProvider = ({ children }: { children: ReactNode }) => {
 
       const metaData = await metaResponse.json();
       
-      console.log(`📋 Attempting to close ${openPositions.length} positions...`);
-      
+            
       let closedCount = 0;
       const errors: string[] = [];
       
@@ -1145,8 +1051,7 @@ export const TradingProvider = ({ children }: { children: ReactNode }) => {
           const closeSize = Math.abs(positionSize);
           const isCloseOrderBuy = positionSize < 0; // If we're short, we buy to close
           
-          console.log(`🔄 Closing ${coinName} position: size=${positionSize}, closeSize=${closeSize}, buy=${isCloseOrderBuy}`);
-          
+                    
           const closeAction = {
             type: "order",
             orders: [{
@@ -1168,8 +1073,7 @@ export const TradingProvider = ({ children }: { children: ReactNode }) => {
             vaultAddress: null
           };
           
-          console.log(`📤 Sending close order for ${coinName}:`, closeAction);
-          
+                    
           const response = await fetch('https://api.hyperliquid.xyz/exchange', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -1177,14 +1081,12 @@ export const TradingProvider = ({ children }: { children: ReactNode }) => {
           });
           
           const responseText = await response.text();
-          console.log(`📥 Close order response for ${coinName}:`, response.status, responseText);
-          
+                    
           if (response.ok) {
             const result = JSON.parse(responseText);
             if (result.status === "ok") {
               closedCount++;
-              console.log(`✅ Successfully closed ${coinName} position (${closedCount}/${openPositions.length})`);
-            } else {
+                          } else {
               errors.push(`${coinName}: ${result.response || 'Unknown error'}`);
             }
           } else {
@@ -1202,8 +1104,7 @@ export const TradingProvider = ({ children }: { children: ReactNode }) => {
       }
       
       // Refresh data after attempting to close positions
-      console.log('🔄 Refreshing account data after position closing attempts...');
-      try {
+            try {
         await refreshAllData();
       } catch (refreshError) {
         console.warn('⚠️ Failed to refresh data after closing positions:', refreshError);
@@ -1243,8 +1144,7 @@ export const TradingProvider = ({ children }: { children: ReactNode }) => {
     setIsTrading(true);
     
     try {
-      console.log('🔍 Fetching open orders for agent account:', agentAccount.publicKey);
-      
+            
       // First, fetch all open orders using the agent account
       const ordersResponse = await fetch('https://api.hyperliquid.xyz/info', {
         method: 'POST',
@@ -1260,20 +1160,12 @@ export const TradingProvider = ({ children }: { children: ReactNode }) => {
       }
 
       const ordersData = await ordersResponse.json();
-      console.log('📊 Raw orders data:', ordersData);
-      
+            
       if (!Array.isArray(ordersData) || ordersData.length === 0) {
         return { success: true, message: "No open orders found to cancel" };
       }
 
-      console.log(`📋 Found ${ordersData.length} open orders:`, ordersData.map((order: any) => ({
-        coin: order.coin,
-        oid: order.oid,
-        side: order.side,
-        sz: order.sz,
-        limitPx: order.limitPx
-      })));
-
+      
       // Fetch asset metadata to ensure we have proper asset indices
       const metaResponse = await fetch('https://api.hyperliquid.xyz/info', {
         method: 'POST',
@@ -1306,8 +1198,7 @@ export const TradingProvider = ({ children }: { children: ReactNode }) => {
         return { success: false, message: "No valid orders found to cancel (asset mapping failed)" };
       }
 
-      console.log(`📤 Sending cancellation for ${cancels.length} orders:`, cancels);
-      
+            
       const cancelAction = {
         type: "cancel",
         cancels: cancels
@@ -1328,8 +1219,7 @@ export const TradingProvider = ({ children }: { children: ReactNode }) => {
       });
       
       const responseText = await cancelResponse.text();
-      console.log('📥 Cancel orders response:', cancelResponse.status, responseText);
-      
+            
       if (!cancelResponse.ok) {
         return {
           success: false,
@@ -1347,11 +1237,9 @@ export const TradingProvider = ({ children }: { children: ReactNode }) => {
         };
       }
       
-      console.log('✅ Cancel orders result:', result);
-      
+            
       // Refresh all relevant data after cancelling orders
-      console.log('🔄 Refreshing account data after cancelling orders...');
-      try {
+            try {
         await refreshAllData();
       } catch (refreshError) {
         console.warn('⚠️ Failed to refresh data after cancelling orders:', refreshError);
@@ -1381,78 +1269,6 @@ export const TradingProvider = ({ children }: { children: ReactNode }) => {
   };
 
   // Test function for guaranteed successful orders
-  const placeTestOrder = async (testType: 'market_buy' | 'limit_buy' | 'market_sell') => {
-    if (!agentAccount) {
-      console.error('❌ No agent account available');
-      return;
-    }
-
-    const currentPrice = getPrice('BTC') || 118719;
-    console.log(`🧪 PLACING TEST ORDER - Type: ${testType}`);
-    console.log(`📊 Current BTC Price: $${currentPrice.toLocaleString()}`);
-
-    let testOrder;
-
-    switch (testType) {
-      case 'market_buy':
-        testOrder = {
-          symbol: 'BTC',
-          side: 'buy' as const,
-          orderType: 'market' as const,
-          quantity: 0.00001, // $1.18 worth
-          leverage: 2,
-          price: 0 // Market price
-        };
-        console.log('📝 Market Buy Order - Will execute at current market price');
-        break;
-
-      case 'limit_buy':
-        const limitPrice = Math.floor(currentPrice * 0.97); // 3% below market
-        testOrder = {
-          symbol: 'BTC',
-          side: 'buy' as const,
-          orderType: 'limit' as const,
-          quantity: 0.00001,
-          leverage: 2,
-          price: limitPrice
-        };
-        console.log(`📝 Limit Buy Order - Will only execute if BTC drops to $${limitPrice.toLocaleString()}`);
-        break;
-
-      case 'market_sell':
-        testOrder = {
-          symbol: 'BTC',
-          side: 'sell' as const,
-          orderType: 'market' as const,
-          quantity: 0.00001,
-          leverage: 2,
-          price: 0
-        };
-        console.log('📝 Market Sell Order - Will execute immediately');
-        break;
-    }
-
-    console.log('💰 Estimated margin requirement:', `$${((testOrder.quantity * currentPrice) / testOrder.leverage).toFixed(2)}`);
-    
-    try {
-      const result = await executeOrder(testOrder);
-      if (result.success) {
-        console.log('✅ TEST ORDER SUCCESS!', result.message);
-        setToast({
-          type: "success",
-          message: `✅ Test order successful: ${result.message}`
-        });
-      } else {
-        console.log('❌ TEST ORDER FAILED:', result.message);
-        setToast({
-          type: "error", 
-          message: `❌ Test order failed: ${result.message}`
-        });
-      }
-    } catch (error) {
-      console.error('❌ Error placing test order:', error);
-    }
-  };
 
   // Conditional Order Helper Functions
   const createStopLossOrderWrapper = async (
@@ -1507,15 +1323,7 @@ export const TradingProvider = ({ children }: { children: ReactNode }) => {
     takeProfitPrice: number, 
     isMarket: boolean = true
   ): Promise<{ success: boolean; message: string; orderIds?: string[] }> => {
-    console.log('🎯 Creating bracket order:', {
-      symbol,
-      side,
-      quantity,
-      stopLossPrice,
-      takeProfitPrice,
-      isMarket
-    });
-
+    
     const results: string[] = [];
     const errors: string[] = [];
 
@@ -1524,8 +1332,7 @@ export const TradingProvider = ({ children }: { children: ReactNode }) => {
       const stopLossResult = await createStopLossOrderWrapper(symbol, side, quantity, stopLossPrice, isMarket);
       if (stopLossResult.success && stopLossResult.orderId) {
         results.push(stopLossResult.orderId);
-        console.log('✅ Stop loss order created:', stopLossResult.orderId);
-      } else {
+              } else {
         errors.push(`Stop loss failed: ${stopLossResult.message}`);
       }
 
@@ -1533,8 +1340,7 @@ export const TradingProvider = ({ children }: { children: ReactNode }) => {
       const takeProfitResult = await createTakeProfitOrderWrapper(symbol, side, quantity, takeProfitPrice, isMarket);
       if (takeProfitResult.success && takeProfitResult.orderId) {
         results.push(takeProfitResult.orderId);
-        console.log('✅ Take profit order created:', takeProfitResult.orderId);
-      } else {
+              } else {
         errors.push(`Take profit failed: ${takeProfitResult.message}`);
       }
 

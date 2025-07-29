@@ -100,8 +100,7 @@ class BasketOrderManagerImpl implements BasketOrderManager {
     if (this.marketMonitoringActive) return;
     
     this.marketMonitoringActive = true;
-    console.log('📊 Market monitoring started for basket orders');
-    
+        
     // Start monitoring active baskets
     for (const basket of this.baskets.values()) {
       if (basket.status === 'active' && basket.stopLoss.enabled) {
@@ -119,8 +118,7 @@ class BasketOrderManagerImpl implements BasketOrderManager {
     }
     this.monitoringIntervals.clear();
     
-    console.log('📊 Market monitoring stopped');
-  }
+      }
   
   monitorTimeframe(symbol: string, timeframe: string): void {
     const key = `${symbol}_${timeframe}`;
@@ -134,8 +132,7 @@ class BasketOrderManagerImpl implements BasketOrderManager {
     }, this.getTimeframeMs(timeframe));
     
     this.monitoringIntervals.set(key, interval);
-    console.log(`📈 Started monitoring ${symbol} on ${timeframe} timeframe`);
-  }
+      }
   
   // Order execution
   async executeBasketEntry(basketId: string): Promise<boolean> {
@@ -349,8 +346,7 @@ class BasketOrderManagerImpl implements BasketOrderManager {
       : candle.close >= triggerPrice; // Short position: trigger if close is above stop loss
     
     if (shouldTrigger) {
-      console.log(`🚨 Stop loss triggered for basket ${basketId} at candle close ${candle.close}`);
-      await this.triggerStopLoss(basketId, candle.close);
+            await this.triggerStopLoss(basketId, candle.close);
     }
   }
   
@@ -401,12 +397,10 @@ class BasketOrderManagerImpl implements BasketOrderManager {
         ? currentPrice - distance  // Buy below market
         : currentPrice + distance; // Sell above market
       
-      console.log(`🏃‍♂️ Limit chaser update for ${basket.symbol}: Current=${currentPrice}, NewPrice=${newPrice}, Distance=${basket.limitChaser.distance}${basket.limitChaser.distanceType === 'percentage' ? '%' : ''}`);
-      
+            
       // Cancel existing limit chaser order if any
       if (basket.activeOrders.limitChaserOrderId) {
-        console.log(`🛑 Cancelling previous limit chaser order: ${basket.activeOrders.limitChaserOrderId}`);
-        await this.cancelOrder(basket.activeOrders.limitChaserOrderId);
+                await this.cancelOrder(basket.activeOrders.limitChaserOrderId);
       }
       
       // Place new limit chaser order with IOC if Fill-or-Cancel is enabled
@@ -428,8 +422,7 @@ class BasketOrderManagerImpl implements BasketOrderManager {
         this.log(basketId, 'limit_chaser_updated', 
           `Limit chaser order ${basket.limitChaser.chaseCount}/${basket.limitChaser.maxChases}: ${newPrice} (${basket.limitChaser.fillOrCancel ? 'IOC' : 'GTC'})`);
         
-        console.log(`📊 Limit chaser order placed: ${orderResult.orderId} at ${newPrice} (Chase ${basket.limitChaser.chaseCount}/${basket.limitChaser.maxChases})`);
-        
+                
         // Check if this was an IOC order and if it was cancelled
         if (basket.limitChaser.fillOrCancel) {
           setTimeout(async () => {
@@ -459,12 +452,10 @@ class BasketOrderManagerImpl implements BasketOrderManager {
       const orderStatus = await this.getOrderStatus(orderId);
       
       if (orderStatus === 'cancelled') {
-        console.log(`⏰ IOC limit chaser order cancelled: ${orderId}`);
-        basket.activeOrders.limitChaserOrderId = undefined;
+                basket.activeOrders.limitChaserOrderId = undefined;
         this.log(basketId, 'ioc_cancelled', `IOC order ${orderId} cancelled - continuing to chase`);
       } else if (orderStatus === 'filled') {
-        console.log(`✅ IOC limit chaser order filled: ${orderId}`);
-        basket.status = 'active'; // Position opened via limit chaser
+                basket.status = 'active'; // Position opened via limit chaser
         this.log(basketId, 'ioc_filled', `IOC order ${orderId} filled - position opened`);
         
         // Setup stop loss and take profits now that position is open
@@ -481,8 +472,7 @@ class BasketOrderManagerImpl implements BasketOrderManager {
   
   private async fetchCandles(symbol: string, timeframe: string, limit: number): Promise<MarketDataCandle[]> {
     // This would integrate with your market data source
-    console.log(`📊 Fetching ${limit} ${timeframe} candles for ${symbol}...`);
-    
+        
     try {
       // In a real implementation, this would call HyperLiquid's candle API
       // For testing, we'll create mock candles based on current price
@@ -530,13 +520,7 @@ class BasketOrderManagerImpl implements BasketOrderManager {
     reduceOnly?: boolean;
   }): Promise<{ success: boolean; orderId?: string; fillPrice?: number; message: string }> {
     // This would integrate with your existing order placement system
-    console.log(`📤 Placing ${order.type} ${order.side} order for ${order.quantity} ${order.symbol}`, {
-      price: order.price,
-      timeInForce: order.timeInForce || 'GTC',
-      leverage: order.leverage,
-      reduceOnly: order.reduceOnly || false
-    });
-    
+        
     // Mock order placement for testing
     return { 
       success: true, 
@@ -548,13 +532,11 @@ class BasketOrderManagerImpl implements BasketOrderManager {
 
   private async cancelOrder(orderId: string): Promise<boolean> {
     // This would integrate with your existing order cancellation system
-    console.log(`🛑 Cancelling order: ${orderId}`);
-    return true;
+        return true;
   }
 
   private async getOrderStatus(orderId: string): Promise<'pending' | 'filled' | 'cancelled' | 'rejected'> {
-    console.log(`📊 Checking status for order: ${orderId}`);
-    // This would check actual order status
+        // This would check actual order status
     // For testing IOC behavior, randomly return filled or cancelled
     return Math.random() > 0.5 ? 'filled' : 'cancelled';
   }
@@ -582,8 +564,7 @@ class BasketOrderManagerImpl implements BasketOrderManager {
       orderId
     });
     
-    console.log(`📝 Basket ${basketId}: ${action} - ${details}`);
-  }
+      }
   
   private emitExecution(execution: BasketOrderExecution): void {
     if (this.onBasketExecution) {
