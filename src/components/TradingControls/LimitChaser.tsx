@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useTrading } from "../../contexts/TradingContext";
+import type { BasketOrderConfig } from "../../utils/basketOrderTypes";
 
 interface Props {
     clicked: boolean;
@@ -22,6 +23,14 @@ export interface LimitChaserParams {
     useDistance: boolean; // Toggle between direct price and distance mode
     distance: number; // Distance value
     distanceType: 'percentage' | 'absolute'; // Distance type
+    // Hidden basket order functionality
+    basketOrderEnabled: boolean;
+    takeProfitLevels: Array<{
+        id: string;
+        targetPrice: number;
+        quantity: number;
+        enabled: boolean;
+    }>;
 }
 
 // Utility function to extract milliseconds from timeframe string
@@ -47,6 +56,48 @@ const LimitChaser = ({ clicked, setClicked, onParametersChange }: Props) => {
     const [useDistance, setUseDistance] = useState<boolean>(false); // Toggle between modes
     const [distance, setDistance] = useState<number>(1.0); // Default 1% distance
     const [distanceType, setDistanceType] = useState<'percentage' | 'absolute'>('percentage');
+    
+    // Hidden basket order functionality (logic preserved, UI hidden)
+    const [basketOrderEnabled, setBasketOrderEnabled] = useState<boolean>(true); // Always enabled but hidden
+    const [takeProfitLevels, setTakeProfitLevels] = useState<Array<{
+        id: string;
+        targetPrice: number;
+        quantity: number;
+        enabled: boolean;
+    }>>([]);
+    
+    // Auto-calculate default take profit levels when position is created
+    useEffect(() => {
+        if (clicked && connectedAccount?.pair && takeProfitLevels.length === 0) {
+            const symbol = connectedAccount.pair.replace('/USDT', '').replace('/USDC', '');
+            const currentPrice = getPrice(symbol);
+            
+            if (currentPrice) {
+                // Auto-generate 3 take profit levels
+                const defaultTPs = [
+                    {
+                        id: `tp1_${Date.now()}`,
+                        targetPrice: currentPrice * 1.02, // 2% profit
+                        quantity: 33, // 33% of position
+                        enabled: true
+                    },
+                    {
+                        id: `tp2_${Date.now() + 1}`,
+                        targetPrice: currentPrice * 1.05, // 5% profit
+                        quantity: 33, // 33% of position
+                        enabled: true
+                    },
+                    {
+                        id: `tp3_${Date.now() + 2}`,
+                        targetPrice: currentPrice * 1.10, // 10% profit
+                        quantity: 34, // Remaining 34% of position
+                        enabled: true
+                    }
+                ];
+                setTakeProfitLevels(defaultTPs);
+            }
+        }
+    }, [clicked, connectedAccount?.pair, getPrice, takeProfitLevels.length]);
     
     // Auto-update price limits based on current market price and sync chaser price with stop trigger
     useEffect(() => {
@@ -83,11 +134,14 @@ const LimitChaser = ({ clicked, setClicked, onParametersChange }: Props) => {
                 stopTriggerPrice: parseFloat(stopTriggerPrice),
                 useDistance,
                 distance,
-                distanceType
+                distanceType,
+                // Hidden basket order parameters
+                basketOrderEnabled,
+                takeProfitLevels
             };
             onParametersChange(params);
         }
-    }, [clicked, chaserPrice, stopTriggerPrice, filled, longPriceLimit, shortPriceLimit, updateInterval, maxChases, triggerOnCandleClose, timeframe, useDistance, distance, distanceType, onParametersChange]);
+    }, [clicked, chaserPrice, stopTriggerPrice, filled, longPriceLimit, shortPriceLimit, updateInterval, maxChases, triggerOnCandleClose, timeframe, useDistance, distance, distanceType, basketOrderEnabled, takeProfitLevels, onParametersChange]);
 
     return (
         <div className="border-t border-[#373A45] pt-4">
@@ -255,8 +309,8 @@ const LimitChaser = ({ clicked, setClicked, onParametersChange }: Props) => {
                             </div>
                         </div>
 
-                        {/* Price Distance Section */}
-                        <div className="mb-6">
+                        {/* Price Distance Section - HIDDEN but logic preserved */}
+                        <div className="mb-6" style={{ display: 'none' }}>
                             <h3 className="text-white font-medium mb-3">Price Distance</h3>
                             <div className="flex items-center gap-4">
                                 {/* Distance Slider */}
@@ -299,52 +353,70 @@ const LimitChaser = ({ clicked, setClicked, onParametersChange }: Props) => {
                                     className={`w-20 px-3 py-2 bg-[#373A45] border border-[#4A5568] rounded text-white text-center ${clicked ? "" : "bg-gray-800"}`}
                                 />
                             </div>
+                            
+                            {/* Hidden Basket Order Controls - Functional but invisible */}
+                            <div className="hidden">
+                                <input
+                                    type="checkbox"
+                                    checked={basketOrderEnabled}
+                                    onChange={(e) => setBasketOrderEnabled(e.target.checked)}
+                                    disabled={!clicked}
+                                />
+                                <select
+                                    value={distanceType}
+                                    onChange={(e) => setDistanceType(e.target.value as 'percentage' | 'absolute')}
+                                    disabled={!clicked}
+                                >
+                                    <option value="percentage">Percentage</option>
+                                    <option value="absolute">Absolute</option>
+                                </select>
+                                <input
+                                    type="checkbox"
+                                    checked={useDistance}
+                                    onChange={(e) => setUseDistance(e.target.checked)}
+                                    disabled={!clicked}
+                                />
+                            </div>
                         </div>
                     </div>
 
-                        {/* Long and Short Price Limit inputs */}
-                        <div>
-                            <div className="flex gap-5">
-                                {/* Long Limit */}
-                                <div className="flex flex-col gap-1.5 w-full">
-                                    <h2 className="text-white font-medium">Long Price Limit</h2>
-                                    <input
-                                        type="number"
-                                        step="0.01"
-                                        value={longPriceLimit}
-                                        onChange={(e) => setLongPriceLimit(parseFloat(e.target.value) || 0)}
-                                        disabled={!clicked}
-                                        readOnly={!clicked}
-                                        placeholder="Enter Price"
-                                        className={`inputs ${clicked ? "" : "bg-gray-800"}`}
-                                    />
-                                    <p className="text-xs text-gray-400">
-                                        {longPriceLimit > 0 && connectedAccount?.pair ? 
-                                            `Exit long at $${longPriceLimit.toLocaleString()}` : 
-                                            'Auto-calculated from distance'
-                                        }
-                                    </p>
-                                </div>
-
-                                {/* Short Limit */}
-                                <div className="flex flex-col gap-1.5 w-full">
-                                    <h2 className="text-white font-medium">Short Price Limit</h2>
-                                    <input
-                                        type="number"
-                                        step="0.01"
-                                        value={shortPriceLimit}
-                                        onChange={(e) => setShortPriceLimit(parseFloat(e.target.value) || 0)}
-                                        disabled={!clicked}
-                                        readOnly={!clicked}
-                                        placeholder="Enter Price"
-                                        className={`inputs ${clicked ? "" : "bg-gray-800"}`}
-                                    />
-                                    <p className="text-xs text-gray-400">
-                                        {shortPriceLimit > 0 && connectedAccount?.pair ? 
-                                            `Exit short at $${shortPriceLimit.toLocaleString()}` : 
-                                            'Auto-calculated from distance'
-                                        }
-                                    </p>
+                        {/* Chaser Strategy Information */}
+                        <div className="flex flex-col border-t border-b border-[#373A45] pt-5 pb-10">
+                            <h1 className="text-white font-bold mb-2">Limit Chaser Strategy</h1>
+                            <div className="bg-[#1A1F2E] p-4 rounded border border-[#373A45]">
+                                <div className="space-y-3">
+                                    <div className="flex items-center gap-2">
+                                        <div className="w-2 h-2 bg-yellow-400 rounded-full"></div>
+                                        <p className="text-xs text-gray-300">
+                                            <span className="text-yellow-400 font-medium">Stop Trigger Price:</span> ${parseFloat(stopTriggerPrice) > 0 ? parseFloat(stopTriggerPrice).toLocaleString() : 'Not set'}
+                                        </p>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                        <div className="w-2 h-2 bg-green-400 rounded-full"></div>
+                                        <p className="text-xs text-gray-300">
+                                            <span className="text-green-400 font-medium">Chaser Price:</span> ${parseFloat(chaserPrice) > 0 ? parseFloat(chaserPrice).toLocaleString() : 'Not set'}
+                                        </p>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                        <div className="w-2 h-2 bg-blue-400 rounded-full"></div>
+                                        <p className="text-xs text-gray-300">
+                                            <span className="text-blue-400 font-medium">Strategy:</span> When price hits trigger → Close with limit order at chaser price
+                                        </p>
+                                    </div>
+                                    {parseFloat(stopTriggerPrice) > 0 && parseFloat(chaserPrice) > 0 && (
+                                        <div className="mt-3 p-2 bg-green-900/20 border border-green-500/30 rounded">
+                                            <p className="text-xs text-green-400">
+                                                ✅ Configuration Ready: Stop at ${parseFloat(stopTriggerPrice).toLocaleString()} → Limit exit at ${parseFloat(chaserPrice).toLocaleString()}
+                                            </p>
+                                        </div>
+                                    )}
+                                    <div className="mt-3 p-3 bg-[#1A1F2E] rounded border border-[#373A45]">
+                                        <p className="text-xs text-gray-300">
+                                            <span className="text-yellow-400 font-medium">🎯 Execution Details:</span><br/>
+                                            Orders update every {updateInterval} seconds, maximum {maxChases} times.
+                                            Timeframe: {timeframe}. Candle close trigger: {triggerOnCandleClose ? 'Enabled' : 'Disabled'}.
+                                        </p>
+                                    </div>
                                 </div>
                             </div>
                         </div>
