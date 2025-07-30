@@ -16,7 +16,7 @@ export interface LimitChaserParams {
     updateInterval: number;
     maxChases: number;
     triggerOnCandleClose: boolean;
-    timeframe: string;
+    timeframe: number; // Now in seconds
     stopTriggerPrice?: number; // Add stop trigger price reference
     // Add distance-based parameters
     distance: number; // Distance value
@@ -32,7 +32,7 @@ const LimitChaser = ({ clicked, setClicked, onParametersChange }: Props) => {
     const [updateInterval, setUpdateInterval] = useState<number>(30);
     const [maxChases, setMaxChases] = useState<number>(10);
     const [triggerOnCandleClose, setTriggerOnCandleClose] = useState<boolean>(true);
-    const [timeframe, setTimeframe] = useState<string>("15m");
+    const [timeframe, setTimeframe] = useState<number>(60); // Default to 60 seconds
     
     // Add distance-based state variables
     const [distance, setDistance] = useState<number>(1.0); // Default 1% distance
@@ -72,7 +72,7 @@ const LimitChaser = ({ clicked, setClicked, onParametersChange }: Props) => {
                 updateInterval,
                 maxChases,
                 triggerOnCandleClose,
-                timeframe,
+                timeframe: Number(timeframe),
                 stopTriggerPrice: parseFloat(stopTriggerPrice),
                 distance
             };
@@ -119,19 +119,25 @@ const LimitChaser = ({ clicked, setClicked, onParametersChange }: Props) => {
                             {/* Timeframe and Update Interval */}
                             <div className="grid grid-cols-2 gap-4 mb-4">
                                 <div>
-                                    <label className="block text-sm text-gray-300 mb-1">Trigger Timeframe</label>
+                                    <label className="block text-sm text-gray-300 mb-1">Trigger Timeframe (seconds)</label>
                                     <select
                                         value={timeframe}
-                                        onChange={(e) => setTimeframe(e.target.value)}
-                                        className="w-full px-3 py-2 bg-[#373A45] border border-[#4A5568] rounded text-white text-sm"
+                                        onChange={(e) => setTimeframe(Number(e.target.value))}
+                                        className="w-full px-3 py-2 bg-[#373A45] border border-[#4A5568] rounded text-white text-sm mb-2"
                                         disabled={!clicked}
                                     >
-                                        <option value="1m">1 Minute</option>
-                                        <option value="5m">5 Minutes</option>
-                                        <option value="15m">15 Minutes</option>
-                                        <option value="1h">1 Hour</option>
-                                        <option value="4h">4 Hours</option>
-                                        <option value="1d">1 Day</option>
+                                        <option value={60}>60 s</option>
+                                        <option value={55}>55 s</option>
+                                        <option value={50}>50 s</option>
+                                        <option value={45}>45 s</option>
+                                        <option value={40}>40 s</option>
+                                        <option value={35}>35 s</option>
+                                        <option value={30}>30 s</option>
+                                        <option value={25}>25 s</option>
+                                        <option value={20}>20 s</option>
+                                        <option value={15}>15 s</option>
+                                        <option value={10}>10 s</option>
+                                        <option value={5}>5 s</option>
                                     </select>
                                 </div>
                                 <div>

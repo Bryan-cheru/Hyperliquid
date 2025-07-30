@@ -6,8 +6,10 @@ import ButtonWrapper from "../ButtonWrapper";
 import BasketOrder from "../BasketOrder";
 import EntryLimitChaser from "../EntryLimitChaser";
 import EntryPosition from "../EntryPosition";
+import LimitChaser from "../LimitChaser";
 import { useEntryPosition } from "../../../hooks/useEntryPosition";
 import type { EntryPositionParams } from "../EntryPosition";
+import type { LimitChaserParams } from "../LimitChaser";
 
 export type Type = "Limit" | "Market";
 
@@ -38,7 +40,7 @@ interface MarketProps {
 
 const Market = ({ selectedOrderType = "Market" }: MarketProps) => {
     // Entry Position Hook Integration
-    const { createEntry, updateEntry, cancelEntry, activeEntries, error: entryError } = useEntryPosition();
+    const { createEntry, updateEntry, cancelEntry } = useEntryPosition();
 
     const [value2, setValue2] = useState(10);
     const [value, setValue] = useState<number[]>([0]);
@@ -59,9 +61,19 @@ const Market = ({ selectedOrderType = "Market" }: MarketProps) => {
     // Entry Limit Chaser state variables
     const [clickedEntryLimitChaser, setClickedEntryLimitChaser] = useState<boolean>(false);
     
+    // Stop Loss Limit Chaser state variables  
+    const [clickedStopLimitChaser, setClickedStopLimitChaser] = useState<boolean>(false);
+    
     // Entry Position Control state variables
     const [clickedEntryPosition, setClickedEntryPosition] = useState<boolean>(false);
     const [currentEntryId, setCurrentEntryId] = useState<string | null>(null);
+    
+    // Stop Loss Limit Chaser parameters handler
+    const handleStopLimitChaserChange = useCallback((params: LimitChaserParams) => {
+        // This would integrate with your stop loss chaser backend logic
+        console.log('Stop Limit Chaser Parameters:', params);
+        // TODO: Integrate with backend stop loss chaser service
+    }, []);
     
     // Entry Position parameters handler
     const handleEntryPositionChange = useCallback(async (params: EntryPositionParams) => {
@@ -276,6 +288,13 @@ const Market = ({ selectedOrderType = "Market" }: MarketProps) => {
 
             {/* Entry Limit Chaser Component - MOVED TO TOP POSITION */}
             <EntryLimitChaser clicked={clickedEntryLimitChaser} setClicked={setClickedEntryLimitChaser} />
+
+            {/* Stop Loss Limit Chaser Component */}
+            <LimitChaser 
+                clicked={clickedStopLimitChaser} 
+                setClicked={setClickedStopLimitChaser}
+                onParametersChange={handleStopLimitChaserChange}
+            />
 
             {/* Entry Position Control Component */}
             <EntryPosition 
