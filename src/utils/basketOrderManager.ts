@@ -164,9 +164,14 @@ class BasketOrderManagerImpl implements BasketOrderManager {
           await this.setupStopLoss(basketId);
         }
         
-        // Setup limit chaser if enabled
+        // Setup exit limit chaser if enabled
         if (basket.limitChaser.enabled) {
           await this.setupLimitChaser(basketId);
+        }
+        
+        // Setup entry limit chaser if enabled and entry order is a limit order
+        if (basket.entryOrder.limitChaser?.enabled && basket.entryOrder.type === 'limit') {
+          await this.setupEntryLimitChaser(basketId);
         }
         
         this.saveBaskets();
@@ -372,6 +377,84 @@ class BasketOrderManagerImpl implements BasketOrderManager {
     this.monitoringIntervals.set(`chaser_${basketId}`, interval);
     
     this.log(basketId, 'limit_chaser_setup', 'Limit chaser monitoring started');
+  }
+  
+  private async setupEntryLimitChaser(basketId: string): Promise<void> {
+    const basket = this.baskets.get(basketId);
+    if (!basket || !basket.entryOrder.limitChaser?.enabled) return;
+    
+    // Start entry limit chaser monitoring
+    const interval = setInterval(async () => {
+      await this.updateEntryLimitChaserPrice(basketId);
+    }, basket.entryOrder.limitChaser.updateInterval * 1000);
+    
+    // Store interval for cleanup
+    this.monitoringIntervals.set(`entry_chaser_${basketId}`, interval);
+    
+    this.log(basketId, 'entry_limit_chaser_setup', 'Entry limit chaser monitoring started');
+  }
+  
+  private async updateEntryLimitChaserPrice(basketId: string): Promise<void> {
+    const basket = this.baskets.get(basketId);
+    if (!basket || !basket.entryOrder.limitChaser?.enabled || 
+        (basket.entryOrder.limitChaser.chaseCount || 0) >= basket.entryOrder.limitChaser.maxChases) {
+      return;
+    }
+    
+    try {
+      // Get current market price
+      const currentPrice = await marketDataService.getPrice(basket.symbol);
+      if (!currentPrice) {
+        console.warn(`⚠️ No market price available for ${basket.symbol} entry limit chaser`);
+        return;
+      }
+      
+      // Calculate new chase price
+      const distance = basket.entryOrder.limitChaser.distanceType === 'percentage' 
+        ? currentPrice * (basket.entryOrder.limitChaser.distance / 100)
+        : basket.entryOrder.limitChaser.distance;
+      
+      const newPrice = basket.side === 'buy'
+        ? currentPrice - distance  // Buy below market (better entry)
+        : currentPrice + distance; // Sell above market (better entry)
+      
+      // Cancel existing entry order if any
+      if (basket.activeOrders.entryOrderId) {
+        await this.cancelOrder(basket.activeOrders.entryOrderId);
+      }
+      
+      // Place new entry limit order
+      const orderResult = await this.placeOrder({
+        symbol: basket.symbol,
+        side: basket.side,
+        type: 'limit',
+        quantity: basket.entryOrder.quantity,
+        price: newPrice,
+        timeInForce: 'GTC', // Always GTC for entry orders
+        leverage: basket.entryOrder.leverage
+      });
+      
+      if (orderResult.success) {
+        basket.activeOrders.entryOrderId = orderResult.orderId;
+        if (!basket.entryOrder.limitChaser.chaseCount) {
+          basket.entryOrder.limitChaser.chaseCount = 0;
+        }
+        basket.entryOrder.limitChaser.chaseCount++;
+        basket.updatedAt = Date.now();
+        
+        this.log(basketId, 'entry_limit_chaser_updated', 
+          `Entry limit chaser order ${basket.entryOrder.limitChaser.chaseCount}/${basket.entryOrder.limitChaser.maxChases}: ${newPrice}`);
+        
+        this.saveBaskets();
+      } else {
+        console.error(`❌ Failed to place entry limit chaser order for ${basket.symbol}`);
+        this.log(basketId, 'entry_limit_chaser_failed', 'Failed to place entry limit chaser order');
+      }
+      
+    } catch (error) {
+      console.error(`❌ Error updating entry limit chaser for ${basketId}:`, error);
+      this.log(basketId, 'entry_limit_chaser_error', `Entry limit chaser error: ${error}`);
+    }
   }
   
   private async updateLimitChaserPrice(basketId: string): Promise<void> {

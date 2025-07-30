@@ -1,9 +1,13 @@
 import * as Slider from "@radix-ui/react-slider"
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import Profits from "../Profits";
 import Leverage from "../Leverage/Leverage";
 import ButtonWrapper from "../ButtonWrapper";
 import BasketOrder from "../BasketOrder";
+import EntryLimitChaser from "../EntryLimitChaser";
+import EntryPosition from "../EntryPosition";
+import { useEntryPosition } from "../../../hooks/useEntryPosition";
+import type { EntryPositionParams } from "../EntryPosition";
 
 export type Type = "Limit" | "Market";
 
@@ -33,6 +37,8 @@ interface MarketProps {
 }
 
 const Market = ({ selectedOrderType = "Market" }: MarketProps) => {
+    // Entry Position Hook Integration
+    const { createEntry, updateEntry, cancelEntry, activeEntries, error: entryError } = useEntryPosition();
 
     const [value2, setValue2] = useState(10);
     const [value, setValue] = useState<number[]>([0]);
@@ -44,11 +50,45 @@ const Market = ({ selectedOrderType = "Market" }: MarketProps) => {
     const [clickedBasket, setClickedBasket] = useState<boolean>(false);
     const [splitCount, setSplitCount] = useState<number>(2); // Separate split count state
     
-    // Limit Chaser state variables
+        // Limit Chaser state variables
     const [clickedLimitChaser, setClickedLimitChaser] = useState<boolean>(false);
     const [longPriceLimit, setLongPriceLimit] = useState<number>(0);
     const [shortPriceLimit, setShortPriceLimit] = useState<number>(0);
-    const [priceDistance, setPriceDistance] = useState<number>(1); // Default 1% distance
+    const [priceDistance, setPriceDistance] = useState<number>(1.5);
+    
+    // Entry Limit Chaser state variables
+    const [clickedEntryLimitChaser, setClickedEntryLimitChaser] = useState<boolean>(false);
+    
+    // Entry Position Control state variables
+    const [clickedEntryPosition, setClickedEntryPosition] = useState<boolean>(false);
+    const [currentEntryId, setCurrentEntryId] = useState<string | null>(null);
+    
+    // Entry Position parameters handler
+    const handleEntryPositionChange = useCallback(async (params: EntryPositionParams) => {
+        if (!params.enabled) {
+            // Cancel existing entry if disabled
+            if (currentEntryId) {
+                await cancelEntry(currentEntryId);
+                setCurrentEntryId(null);
+            }
+            return;
+        }
+        
+        try {
+            if (currentEntryId) {
+                // Update existing entry
+                await updateEntry(currentEntryId, params);
+            } else {
+                // Create new entry (default to buy side, could be configurable)
+                const entryId = await createEntry('buy', params);
+                if (entryId) {
+                    setCurrentEntryId(entryId);
+                }
+            }
+        } catch (error) {
+            console.error('Error handling entry position change:', error);
+        }
+    }, [createEntry, updateEntry, cancelEntry, currentEntryId]);
     
     // Use the order type passed from parent instead of local state
     const orderType = selectedOrderType;
@@ -234,6 +274,16 @@ const Market = ({ selectedOrderType = "Market" }: MarketProps) => {
                 )}
             </div>
 
+            {/* Entry Limit Chaser Component - MOVED TO TOP POSITION */}
+            <EntryLimitChaser clicked={clickedEntryLimitChaser} setClicked={setClickedEntryLimitChaser} />
+
+            {/* Entry Position Control Component */}
+            <EntryPosition 
+                clicked={clickedEntryPosition} 
+                setClicked={setClickedEntryPosition}
+                onParametersChange={handleEntryPositionChange}
+            />
+
             {/* Order Split Section */}
             <div className="border-t border-[#373A45] pt-6">
                 <div className="flex items-center gap-3 mb-4">
@@ -333,10 +383,10 @@ const Market = ({ selectedOrderType = "Market" }: MarketProps) => {
                 )}
             </div>
 
-            {/* Limit Chaser Section */}
+            {/* Stop Loss Limit Chaser Section - RENAMED */}
             <div className="border-t border-[#373A45] pt-6">
                 <div className="flex items-center gap-3 mb-4">
-                    <h3 className="text-white font-medium text-lg">Limit Chaser</h3>
+                    <h3 className="text-white font-medium text-lg">Stop Loss Limit Chaser</h3>
                     <button 
                         onClick={() => setClickedLimitChaser(!clickedLimitChaser)}
                         data-testid="limit-chaser-toggle"

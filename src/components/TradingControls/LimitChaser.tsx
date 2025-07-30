@@ -11,7 +11,6 @@ interface Props {
 export interface LimitChaserParams {
     enabled: boolean;
     chaserPrice: number; // Direct price instead of distance
-    fillOrCancel: boolean;
     longPriceLimit?: number;
     shortPriceLimit?: number;
     updateInterval: number;
@@ -26,7 +25,6 @@ export interface LimitChaserParams {
 // Enhanced LimitChaser component with basket order integration
 const LimitChaser = ({ clicked, setClicked, onParametersChange }: Props) => {
     const { connectedAccount, getPrice } = useTrading();
-    const [filled, setFilled] = useState<boolean>(false); // Toggle for "Filled or Cancel"
     const [longPriceLimit, setLongPriceLimit] = useState<number>(0);
     const [shortPriceLimit, setShortPriceLimit] = useState<number>(0);
     const [chaserPrice, setChaserPrice] = useState<string>("0"); // Direct price input
@@ -34,7 +32,7 @@ const LimitChaser = ({ clicked, setClicked, onParametersChange }: Props) => {
     const [updateInterval, setUpdateInterval] = useState<number>(30);
     const [maxChases, setMaxChases] = useState<number>(10);
     const [triggerOnCandleClose, setTriggerOnCandleClose] = useState<boolean>(true);
-    const [timeframe, setTimeframe] = useState<string>("1000ms");
+    const [timeframe, setTimeframe] = useState<string>("15m");
     
     // Add distance-based state variables
     const [distance, setDistance] = useState<number>(1.0); // Default 1% distance
@@ -69,7 +67,6 @@ const LimitChaser = ({ clicked, setClicked, onParametersChange }: Props) => {
             const params: LimitChaserParams = {
                 enabled: clicked,
                 chaserPrice: parseFloat(chaserPrice),
-                fillOrCancel: filled,
                 longPriceLimit,
                 shortPriceLimit,
                 updateInterval,
@@ -81,7 +78,7 @@ const LimitChaser = ({ clicked, setClicked, onParametersChange }: Props) => {
             };
             onParametersChange(params);
         }
-    }, [clicked, chaserPrice, stopTriggerPrice, filled, longPriceLimit, shortPriceLimit, updateInterval, maxChases, triggerOnCandleClose, timeframe, distance, onParametersChange]);
+    }, [clicked, chaserPrice, stopTriggerPrice, longPriceLimit, shortPriceLimit, updateInterval, maxChases, triggerOnCandleClose, timeframe, distance, onParametersChange]);
 
     return (
         <div className="border-t border-[#373A45] pt-4">
@@ -109,7 +106,7 @@ const LimitChaser = ({ clicked, setClicked, onParametersChange }: Props) => {
                             <polyline points="20 6 9 17 4 12" />
                         </svg>
                     </label>
-                    <h1 className="text-xl font-medium text-white">Enhanced Limit Chaser</h1>
+                    <h1 className="text-xl font-medium text-white">Stop Loss Limit Chaser</h1>
                     {clicked && connectedAccount && (
                         <span className="text-xs text-green-400 ml-2">🟢 Active</span>
                     )}
@@ -122,20 +119,19 @@ const LimitChaser = ({ clicked, setClicked, onParametersChange }: Props) => {
                             {/* Timeframe and Update Interval */}
                             <div className="grid grid-cols-2 gap-4 mb-4">
                                 <div>
-                                    <label className="block text-sm text-gray-300 mb-1">Trigger Timeframe (Milliseconds)</label>
+                                    <label className="block text-sm text-gray-300 mb-1">Trigger Timeframe</label>
                                     <select
                                         value={timeframe}
                                         onChange={(e) => setTimeframe(e.target.value)}
                                         className="w-full px-3 py-2 bg-[#373A45] border border-[#4A5568] rounded text-white text-sm"
                                         disabled={!clicked}
                                     >
-                                        <option value="100ms">100 Milliseconds</option>
-                                        <option value="250ms">250 Milliseconds</option>
-                                        <option value="500ms">500 Milliseconds</option>
-                                        <option value="1000ms">1 Second (1000ms)</option>
-                                        <option value="2000ms">2 Seconds (2000ms)</option>
-                                        <option value="5000ms">5 Seconds (5000ms)</option>
-                                        <option value="10000ms">10 Seconds (10000ms)</option>
+                                        <option value="1m">1 Minute</option>
+                                        <option value="5m">5 Minutes</option>
+                                        <option value="15m">15 Minutes</option>
+                                        <option value="1h">1 Hour</option>
+                                        <option value="4h">4 Hours</option>
+                                        <option value="1d">1 Day</option>
                                     </select>
                                 </div>
                                 <div>
@@ -153,7 +149,7 @@ const LimitChaser = ({ clicked, setClicked, onParametersChange }: Props) => {
                                 </div>
                             </div>
 
-                            {/* Max Chases and Candle Close Trigger */}
+                            {/* Max Chases and Stop Trigger Price - Side by Side */}
                             <div className="grid grid-cols-2 gap-4 mb-4">
                                 <div>
                                     <label className="block text-sm text-gray-300 mb-1">Max Chases (≤100)</label>
@@ -185,45 +181,40 @@ const LimitChaser = ({ clicked, setClicked, onParametersChange }: Props) => {
                                         </div>
                                     )}
                                 </div>
-                                <div className="flex items-center gap-2 pt-5">
+                                <div>
+                                    <label className="block text-sm text-gray-300 mb-1">Stop Trigger Price</label>
                                     <input
-                                        type="checkbox"
-                                        checked={triggerOnCandleClose}
-                                        onChange={(e) => setTriggerOnCandleClose(e.target.checked)}
-                                        className="w-4 h-4 text-[#F0B90B] bg-[#373A45] border-2 border-[#4A5568] rounded focus:ring-[#F0B90B] focus:ring-2"
+                                        type="number"
+                                        step="0.01"
+                                        min="0"
+                                        value={stopTriggerPrice}
+                                        onChange={(e) => {
+                                            const val = e.target.value;
+                                            setStopTriggerPrice(val);
+                                            // Auto-sync chaser price when stop trigger changes
+                                            if (val && !isNaN(parseFloat(val))) {
+                                                setChaserPrice(val);
+                                            }
+                                        }}
                                         disabled={!clicked}
+                                        readOnly={!clicked}
+                                        placeholder="0.00"
+                                        className={`w-full px-3 py-2 bg-[#373A45] border border-[#4A5568] rounded text-white text-center ${clicked ? "" : "bg-gray-800"}`}
                                     />
-                                    <label className="text-sm text-gray-300">Candle Close Trigger</label>
+                                    
+                                    {/* Candle Close Trigger - positioned below Stop Trigger Price */}
+                                    <div className="flex items-center gap-2 mt-3">
+                                        <input
+                                            type="checkbox"
+                                            checked={triggerOnCandleClose}
+                                            onChange={(e) => setTriggerOnCandleClose(e.target.checked)}
+                                            className="w-4 h-4 text-[#F0B90B] bg-[#373A45] border-2 border-[#4A5568] rounded focus:ring-[#F0B90B] focus:ring-2"
+                                            disabled={!clicked}
+                                        />
+                                        <label className="text-sm text-gray-300">Candle Close Trigger</label>
+                                    </div>
                                 </div>
                             </div>
-                        </div>
-                        
-                        {/* Filled or Cancel toggle */}
-                        <div className="flex items-center gap-4 mb-6">
-                            <p
-                                className={`inter text-xs underline cursor-pointer ${filled ? "text-blue-400" : "text-[#C5C8D0]"}`}
-                                onClick={() => setFilled(prev => !prev)}
-                            >
-                                Filled or Cancel
-                            </p>
-                            <input
-                                type="number"
-                                step="0.01"
-                                min="0"
-                                value={stopTriggerPrice}
-                                onChange={(e) => {
-                                    const val = e.target.value;
-                                    setStopTriggerPrice(val);
-                                    // Auto-sync chaser price when stop trigger changes
-                                    if (val && !isNaN(parseFloat(val))) {
-                                        setChaserPrice(val);
-                                    }
-                                }}
-                                disabled={!clicked}
-                                readOnly={!clicked}
-                                placeholder="00"
-                                className={`w-32 text-center px-3 py-2 bg-[#373A45] border border-[#4A5568] rounded text-white ${clicked ? "" : "bg-gray-800"}`}
-                            />
                         </div>
 
                         {/* Long and Short Price Limits */}
