@@ -1,15 +1,10 @@
 import * as Slider from "@radix-ui/react-slider"
-import { useState, useCallback } from "react";
+import { useState } from "react";
 import Profits from "../Profits";
 import Leverage from "../Leverage/Leverage";
 import ButtonWrapper from "../ButtonWrapper";
 import BasketOrder from "../BasketOrder";
 import EntryLimitChaser from "../EntryLimitChaser";
-import EntryPosition from "../EntryPosition";
-import LimitChaser from "../LimitChaser";
-import { useEntryPosition } from "../../../hooks/useEntryPosition";
-import type { EntryPositionParams } from "../EntryPosition";
-import type { LimitChaserParams } from "../LimitChaser";
 
 export type Type = "Limit" | "Market";
 
@@ -39,9 +34,6 @@ interface MarketProps {
 }
 
 const Market = ({ selectedOrderType = "Market" }: MarketProps) => {
-    // Entry Position Hook Integration
-    const { createEntry, updateEntry, cancelEntry } = useEntryPosition();
-
     const [value2, setValue2] = useState(10);
     const [value, setValue] = useState<number[]>([0]);
     const [value3, setValue3] = useState<number[]>([10]); // Start with 10% position size instead of 0%
@@ -60,47 +52,6 @@ const Market = ({ selectedOrderType = "Market" }: MarketProps) => {
     
     // Entry Limit Chaser state variables
     const [clickedEntryLimitChaser, setClickedEntryLimitChaser] = useState<boolean>(false);
-    
-    // Stop Loss Limit Chaser state variables  
-    const [clickedStopLimitChaser, setClickedStopLimitChaser] = useState<boolean>(false);
-    
-    // Entry Position Control state variables
-    const [clickedEntryPosition, setClickedEntryPosition] = useState<boolean>(false);
-    const [currentEntryId, setCurrentEntryId] = useState<string | null>(null);
-    
-    // Stop Loss Limit Chaser parameters handler
-    const handleStopLimitChaserChange = useCallback((params: LimitChaserParams) => {
-        // This would integrate with your stop loss chaser backend logic
-        console.log('Stop Limit Chaser Parameters:', params);
-        // TODO: Integrate with backend stop loss chaser service
-    }, []);
-    
-    // Entry Position parameters handler
-    const handleEntryPositionChange = useCallback(async (params: EntryPositionParams) => {
-        if (!params.enabled) {
-            // Cancel existing entry if disabled
-            if (currentEntryId) {
-                await cancelEntry(currentEntryId);
-                setCurrentEntryId(null);
-            }
-            return;
-        }
-        
-        try {
-            if (currentEntryId) {
-                // Update existing entry
-                await updateEntry(currentEntryId, params);
-            } else {
-                // Create new entry (default to buy side, could be configurable)
-                const entryId = await createEntry('buy', params);
-                if (entryId) {
-                    setCurrentEntryId(entryId);
-                }
-            }
-        } catch (error) {
-            console.error('Error handling entry position change:', error);
-        }
-    }, [createEntry, updateEntry, cancelEntry, currentEntryId]);
     
     // Use the order type passed from parent instead of local state
     const orderType = selectedOrderType;
@@ -288,20 +239,6 @@ const Market = ({ selectedOrderType = "Market" }: MarketProps) => {
 
             {/* Entry Limit Chaser Component - MOVED TO TOP POSITION */}
             <EntryLimitChaser clicked={clickedEntryLimitChaser} setClicked={setClickedEntryLimitChaser} />
-
-            {/* Stop Loss Limit Chaser Component */}
-            <LimitChaser 
-                clicked={clickedStopLimitChaser} 
-                setClicked={setClickedStopLimitChaser}
-                onParametersChange={handleStopLimitChaserChange}
-            />
-
-            {/* Entry Position Control Component */}
-            <EntryPosition 
-                clicked={clickedEntryPosition} 
-                setClicked={setClickedEntryPosition}
-                onParametersChange={handleEntryPositionChange}
-            />
 
             {/* Order Split Section */}
             <div className="border-t border-[#373A45] pt-6">

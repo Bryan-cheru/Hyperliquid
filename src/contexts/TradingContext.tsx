@@ -462,8 +462,7 @@ export const TradingProvider = ({ children }: { children: ReactNode }) => {
     }
     
     try {
-                                                                        if (order.orderSplit) {
-                                      }
+                                                                        if (order.orderSplit) { /* empty */ }
                   
       // Get asset index for the trading pair
       const assetSymbol = order.symbol.replace('/USDT', '').replace('/USDC', '').replace('-USD', '');
