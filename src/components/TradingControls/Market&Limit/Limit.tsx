@@ -9,10 +9,12 @@ import BasketOrder from "../BasketOrder";
 import EntryPosition from "../EntryPosition";
 import { useTrading } from "../../../contexts/TradingContext";
 import { type TradingParams } from "./Market";
+import { enhancedMarketDataService } from "../../../services/enhancedMarketDataService";
+import { tradingDataService } from "../../../services/tradingDataService";
 
 const Limit = () => {
 
-    const { getPrice } = useTrading(); // Get current market price
+    const { getPrice, connectedAccount } = useTrading(); // Get current market price and account
     const [leverage, setLeverage] = useState<number>(10);
     const [value, setValue] = useState<number>(0);
     const [value2, setValue2] = useState<number>(0);
@@ -21,6 +23,50 @@ const Limit = () => {
     const [clickedBasket, setClickedBasket] = useState<boolean>(false);
     const [clickedEntryPosition, setClickedEntryPosition] = useState<boolean>(false);
     const [limitPrice, setLimitPrice] = useState<number>(0); // Start with 0, will be set from market price
+    const [userPreferences, setUserPreferences] = useState<any>(null);
+
+    // Load user preferences from MongoDB
+    useEffect(() => {
+        const loadUserPreferences = async () => {
+            try {
+                if (connectedAccount?.accountId) {
+                    // Set user ID for database operations
+                    enhancedMarketDataService.setUserId(`user_${connectedAccount.accountId}`);
+                    
+                    // Get stored preferences
+                    const user = await tradingDataService.getUserById(`user_${connectedAccount.accountId}`);
+                    if (user) {
+                        setUserPreferences(user.preferences);
+                        setValue2(user.preferences.defaultLeverage || 10);
+                    }
+                }
+            } catch (error) {
+                console.log('No stored preferences found, using defaults');
+            }
+        };
+        
+        loadUserPreferences();
+    }, [connectedAccount]);
+
+    // Save preferences when they change
+    useEffect(() => {
+        const savePreferences = async () => {
+            try {
+                if (connectedAccount?.accountId && userPreferences) {
+                    await tradingDataService.updateUserPreferences(`user_${connectedAccount.accountId}`, {
+                        ...userPreferences,
+                        defaultLeverage: value2
+                    });
+                }
+            } catch (error) {
+                console.log('Could not save preferences:', error);
+            }
+        };
+
+        if (userPreferences && value2 !== 0) {
+            savePreferences();
+        }
+    }, [value2, connectedAccount]);
 
     // Get current BTC price and set reasonable limit price
     useEffect(() => {
@@ -52,6 +98,33 @@ const Limit = () => {
         maxPrice: undefined,
         splitCount: leverage,
         scaleType: 'Lower'
+    };
+
+    // Track when orders are placed for analytics
+    const handleOrderSubmit = async (orderData: any) => {
+        try {
+            if (connectedAccount?.accountId) {
+                // Save order to MongoDB for tracking
+                await tradingDataService.saveOpenOrder({
+                    userId: `user_${connectedAccount.accountId}`,
+                    accountId: connectedAccount.accountId,
+                    id: `limit_${Date.now()}`,
+                    symbol: 'BTC', // Should come from selected asset
+                    side: 'buy', // Should come from order direction
+                    type: 'limit',
+                    quantity: value,
+                    price: limitPrice,
+                    filled: 0,
+                    remaining: value,
+                    status: 'open',
+                    timestamp: new Date()
+                });
+                
+                console.log('📊 Order tracked in MongoDB');
+            }
+        } catch (error) {
+            console.log('Could not track order:', error);
+        }
     };
 
     // Debug logging

@@ -10,6 +10,8 @@ import {
   validateConditionalOrder,
   type ConditionalOrderConfig 
 } from "../utils/conditionalOrders";
+import { tradingDataService } from "../services/tradingDataService";
+import { databaseService } from "../services/databaseService";
 
 // Types for master account (view-only) and trading functionality
 export interface ConnectedAccount {
