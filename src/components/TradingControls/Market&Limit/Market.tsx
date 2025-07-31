@@ -4,7 +4,6 @@ import Profits from "../Profits";
 import Leverage from "../Leverage/Leverage";
 import ButtonWrapper from "../ButtonWrapper";
 import BasketOrder from "../BasketOrder";
-import EntryLimitChaser from "../EntryLimitChaser";
 
 export type Type = "Limit" | "Market";
 
@@ -44,15 +43,6 @@ const Market = ({ selectedOrderType = "Market" }: MarketProps) => {
     const [clickedBasket, setClickedBasket] = useState<boolean>(false);
     const [splitCount, setSplitCount] = useState<number>(2); // Separate split count state
     
-        // Limit Chaser state variables
-    const [clickedLimitChaser, setClickedLimitChaser] = useState<boolean>(false);
-    const [longPriceLimit, setLongPriceLimit] = useState<number>(0);
-    const [shortPriceLimit, setShortPriceLimit] = useState<number>(0);
-    const [priceDistance, setPriceDistance] = useState<number>(1.5);
-    
-    // Entry Limit Chaser state variables
-    const [clickedEntryLimitChaser, setClickedEntryLimitChaser] = useState<boolean>(false);
-    
     // Use the order type passed from parent instead of local state
     const orderType = selectedOrderType;
     
@@ -76,11 +66,6 @@ const Market = ({ selectedOrderType = "Market" }: MarketProps) => {
       maxPrice: clickedSplit ? maxPrice : undefined,
       splitCount: splitCount, // Use separate split count instead of leverage
       scaleType: value4 === 0 ? "Lower" : value4 === 1 ? "Mid point" : "Upper",
-      // Limit Chaser parameters
-      limitChaser: clickedLimitChaser,
-      longPriceLimit: clickedLimitChaser ? longPriceLimit : undefined,
-      shortPriceLimit: clickedLimitChaser ? shortPriceLimit : undefined,
-      priceDistance: clickedLimitChaser ? priceDistance : undefined,
     };
 
     // Debug logging to trace order type
@@ -237,24 +222,21 @@ const Market = ({ selectedOrderType = "Market" }: MarketProps) => {
                 )}
             </div>
 
-            {/* Entry Limit Chaser Component - MOVED TO TOP POSITION */}
-            <EntryLimitChaser clicked={clickedEntryLimitChaser} setClicked={setClickedEntryLimitChaser} />
+
 
             {/* Order Split Section */}
             <div className="border-t border-[#373A45] pt-6">
                 <div className="flex items-center gap-3 mb-4">
                     <h3 className="text-white font-medium text-lg">Order Split</h3>
-                    <button 
-                        onClick={() => setClickedSplit(!clickedSplit)}
-                        data-testid="order-split-toggle"
-                        className={`w-12 h-6 rounded-full transition-all relative ${
-                            clickedSplit ? 'bg-[#F0B90B]' : 'bg-[#373A45]'
-                        }`}
-                    >
-                        <div className={`w-5 h-5 bg-white rounded-full transition-all absolute top-0.5 ${
-                            clickedSplit ? 'translate-x-6' : 'translate-x-0.5'
-                        }`} />
-                    </button>
+                    <label className="flex items-center gap-2 cursor-pointer">
+                        <input
+                            type="checkbox"
+                            checked={clickedSplit}
+                            onChange={(e) => setClickedSplit(e.target.checked)}
+                            data-testid="order-split-checkbox"
+                            className="w-4 h-4 text-[#F0B90B] bg-[#373A45] border-[#373A45] rounded focus:ring-[#F0B90B] focus:ring-2"
+                        />
+                    </label>
                 </div>
 
                 {clickedSplit && (
@@ -333,76 +315,6 @@ const Market = ({ selectedOrderType = "Market" }: MarketProps) => {
                                 <span>Lower band</span>
                                 <span>|</span>
                                 <span>Upper band</span>
-                            </div>
-                        </div>
-                    </div>
-                )}
-            </div>
-
-            {/* Stop Loss Limit Chaser Section - RENAMED */}
-            <div className="border-t border-[#373A45] pt-6">
-                <div className="flex items-center gap-3 mb-4">
-                    <h3 className="text-white font-medium text-lg">Stop Loss Limit Chaser</h3>
-                    <button 
-                        onClick={() => setClickedLimitChaser(!clickedLimitChaser)}
-                        data-testid="limit-chaser-toggle"
-                        className={`w-12 h-6 rounded-full transition-all relative ${
-                            clickedLimitChaser ? 'bg-[#F0B90B]' : 'bg-[#373A45]'
-                        }`}
-                    >
-                        <div className={`w-5 h-5 bg-white rounded-full transition-all absolute top-0.5 ${
-                            clickedLimitChaser ? 'translate-x-6' : 'translate-x-0.5'
-                        }`} />
-                    </button>
-                </div>
-                
-                {clickedLimitChaser && (
-                    <div className="flex flex-col gap-4">
-                        <div className="flex gap-4 mb-4">
-                            <div className="flex flex-col gap-2 flex-1">
-                                <h4 className="text-white font-medium text-sm">Long Price Limit</h4>
-                                <input 
-                                    type="number" 
-                                    placeholder="Enter Price" 
-                                    className="inputs"
-                                    value={longPriceLimit || ''}
-                                    onChange={(e) => setLongPriceLimit(parseFloat(e.target.value) || 0)}
-                                />
-                            </div>
-                            <div className="flex flex-col gap-2 flex-1">
-                                <h4 className="text-white font-medium text-sm">Short Price Limit</h4>
-                                <input 
-                                    type="number" 
-                                    placeholder="Enter Price" 
-                                    className="inputs"
-                                    value={shortPriceLimit || ''}
-                                    onChange={(e) => setShortPriceLimit(parseFloat(e.target.value) || 0)}
-                                />
-                            </div>
-                        </div>
-
-                        <div>
-                            <h4 className="text-[#B0B0B0] text-sm mb-3">Price Distance: <span className="text-white">{priceDistance.toFixed(2)}%</span></h4>
-                            <Slider.Root
-                                className="relative flex items-center select-none touch-none w-full h-8"
-                                min={0.01}
-                                max={5}
-                                step={0.01}
-                                value={[priceDistance]}
-                                onValueChange={([val]) => setPriceDistance(val)}
-                            >
-                                <Slider.Track className="bg-[#E5E5E5] relative grow rounded-full h-2">
-                                    <Slider.Range className="absolute h-full bg-yellow-400 rounded-full" />
-                                </Slider.Track>
-                                <Slider.SliderThumb>
-                                    <svg xmlns="http://www.w3.org/2000/svg" className="outline-none" width="18" height="18" viewBox="0 0 16 16" fill="none">
-                                        <path d="M8 15.4998C12.1421 15.4998 15.5 12.1419 15.5 7.99986C15.5 3.8577 12.1421 0.499847 8 0.499847C3.85788 0.499847 0.5 3.8577 0.5 7.99986C0.5 12.1419 3.85788 15.4998 8 15.4998Z" fill="#F0B90B" />
-                                    </svg>
-                                </Slider.SliderThumb>
-                            </Slider.Root>
-                            <div className="flex justify-between text-sm text-white mt-1">
-                                <span>0.01%</span>
-                                <span>5.00%</span>
                             </div>
                         </div>
                     </div>
