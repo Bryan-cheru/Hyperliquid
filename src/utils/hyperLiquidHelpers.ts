@@ -70,12 +70,7 @@ export function createPlaceholderSignature() {
  */
 export function showLiveTradingRequirements() {
   console.group('✅ Live Trading Implementation Status');
-  console.log('✅ Real EIP-712 signature generation implemented');
-  console.log('✅ Private key integration for order signing');
-  console.log('✅ HyperLiquid API integration complete');
-  console.log('✅ Order validation and error handling');
-  console.log('📖 Docs: https://hyperliquid.gitbook.io/hyperliquid-docs/for-developers/api/exchange-endpoint');
-  console.groupEnd();
+            console.groupEnd();
 }
 
 // HyperLiquid API Types
@@ -153,18 +148,8 @@ export function validateOrderPayload(payload: HyperLiquidPayload): { valid: bool
  * Logs detailed order information for debugging
  */
 export function logOrderDetails(payload: HyperLiquidPayload) {
-  console.log('🔍 Order Validation:', validateOrderPayload(payload));
-  console.log('📋 Full Order Payload:', JSON.stringify(payload, null, 2));
-  
+      
   if (payload.action?.orders?.[0]) {
     const order = payload.action.orders[0];
-    console.log('📊 Order Details:', {
-      asset: order.a,
-      isBuy: order.b,
-      price: order.p,
-      size: order.s,
-      reduceOnly: order.r,
-      type: order.t
-    });
-  }
+      }
 }

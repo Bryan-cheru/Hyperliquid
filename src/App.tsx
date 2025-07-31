@@ -5,6 +5,7 @@ import Navbar from "./components/Navbar/Navbar"
 import Tabs from "./components/Tabs/Tabs"
 import TradingControls, { type Buttons } from "./components/TradingControls/TradingControls"
 import { TradingProvider } from "./contexts/TradingContext"
+import { MultiAccountTradingProvider } from "./contexts/MultiAccountTradingContext"
 
 function App() {
 
@@ -16,7 +17,8 @@ function App() {
 
   return (  
     <TradingProvider>
-      <section className="w-full min-h-screen bg-[#0a0e13]">
+      <MultiAccountTradingProvider>
+        <section className="w-full min-h-screen bg-[#0a0e13]">
         <Navbar accNum={accNum} />
         {modal && (
           <div className="fixed w-full inset-0 flex items-center justify-center z-50 backdrop-blur-[2px]">
@@ -45,8 +47,9 @@ function App() {
           </div>
         </div>
       </section>
-    </TradingProvider>
-  )
+    </MultiAccountTradingProvider>
+  </TradingProvider>
+  );
 }
 
 export default App

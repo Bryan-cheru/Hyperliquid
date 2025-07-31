@@ -1,6 +1,5 @@
 import Limit from "./Market&Limit/Limit";
 import Market from "./Market&Limit/Market";
-import Leverage from "./Leverage/Leverage";
 
 export type Buttons = "Market" | "Limit";
 
@@ -13,20 +12,33 @@ const TradingControls = ({ setType, type }: Props) => {
 
   return (
     <section className="bg-[#181C29] min-h-screen h-fit robot overflow-auto">
-      <div className="flex flex-col gap-8 p-5 mr-3 justify-center">
+      <div className="flex flex-col gap-6 p-5 mr-3">
         <div className="top">
-          <div className="flex justify-between items-center mb-2">
+          <div className="flex justify-between items-center mb-4">
             <h1 className="text-[#F0B90B] font-bold font-sans-Roboto text-xl">TRADING CONTROLS</h1>
           </div>
           
-         
-          
           {/* Order Type Toggle */}
-          <div className="flex gap-2.5">
-            <button onClick={() => setType("Market")} className={`py-1.5 cursor-pointer px-3 transform translate-x-3 rounded-[6px] font-bold ${type === "Market" ? "bg-[#F0B90B] text-black" : "bg-[#24293A] text-white"}`}>Market</button>
-            <button onClick={() => setType("Limit")} className={`relative cursor-pointer py-1.5 px-3 rounded-[6px] font-bold ${type === "Limit" ? "bg-[#F0B90B] text-black" : "bg-[#24293A] text-white"}`} >Limit</button>
+          <div className="flex gap-0 bg-[#24293A] rounded-[6px] p-1">
+            <button 
+              onClick={() => setType("Market")} 
+              className={`py-2 cursor-pointer px-4 rounded-[4px] font-bold text-sm transition-all ${
+                type === "Market" ? "bg-[#F0B90B] text-black" : "bg-transparent text-white"
+              }`}
+            >
+              Market
+            </button>
+            <button 
+              onClick={() => setType("Limit")} 
+              className={`py-2 cursor-pointer px-4 rounded-[4px] font-bold text-sm transition-all ${
+                type === "Limit" ? "bg-[#F0B90B] text-black" : "bg-transparent text-white"
+              }`}
+            >
+              Limit
+            </button>
           </div>
         </div>
+        
         {type === "Limit" ? <Limit /> : <Market selectedOrderType={type as "Market" | "Limit"} />}
       </div>
     </section>

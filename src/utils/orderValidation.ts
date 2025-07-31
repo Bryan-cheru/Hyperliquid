@@ -56,26 +56,14 @@ export function validateOrderStructure(orderPayload: OrderPayload): { isValid: b
 }
 
 export function logOrderDetails(orderPayload: OrderPayload) {
-  console.log('🔍 Order Structure Analysis:');
-  console.log('📋 Full Payload:', JSON.stringify(orderPayload, null, 2));
-  
+      
   const validation = validateOrderStructure(orderPayload);
   if (validation.isValid) {
-    console.log('✅ Order structure is valid');
-  } else {
-    console.log('❌ Order structure errors:', validation.errors);
-  }
+      } else {
+      }
   
   // Show specific details
   if (orderPayload.action?.orders?.[0]) {
     const order = orderPayload.action.orders[0] as Record<string, unknown>;
-    console.log('📊 Order Details:', {
-      asset: order.a,
-      isBuy: order.b,
-      size: order.s,
-      price: order.p,
-      reduceOnly: order.r,
-      orderType: order.t
-    });
-  }
+      }
 }

@@ -2,7 +2,9 @@ import { useEffect, useRef, useState } from "react";
 import AnimateHeight from "react-animate-height";
 import { motion } from "framer-motion";
 import { useTrading } from "../../hooks/useTrading";
+import { useMultiAccountTrading } from "../../contexts/MultiAccountTradingContext";
 import type { AgentAccount } from "../../contexts/TradingContext";
+import type { MultiAgentAccount } from "../../contexts/MultiAccountTradingContext";
 import { verifyPrivateKeyToAddress } from "../../utils/hyperLiquidSigning";
 
 // Type definition for account data
@@ -43,6 +45,7 @@ const Account = ({ acc, id, getId, getName }: AccountProps) => {
   
   // Trading context to connect agent account for trading
   const { setAgentAccount } = useTrading();
+  const { addAgentAccount, refreshAccountData } = useMultiAccountTrading();
   
   const cardRef = useRef<HTMLDivElement | null>(null); // Ref to detect outside clicks
 
@@ -50,8 +53,7 @@ const Account = ({ acc, id, getId, getName }: AccountProps) => {
   const fetchTradingPairs = async () => {
     setLoadingPairs(true);
     try {
-      console.log('🔍 Fetching available trading pairs from HyperLiquid...');
-      
+            
       const response = await fetch('https://api.hyperliquid.xyz/info', {
         method: 'POST',
         headers: {
@@ -91,8 +93,7 @@ const Account = ({ acc, id, getId, getName }: AccountProps) => {
         setSubscriberPair(pairs[1]);
       }
       
-      console.log('✅ Successfully loaded', pairs.length, 'trading pairs');
-    } catch (error) {
+          } catch (error) {
       console.error('❌ Error fetching trading pairs:', error);
       
       // Fallback to default pairs on error
@@ -113,14 +114,12 @@ const Account = ({ acc, id, getId, getName }: AccountProps) => {
   // Log pair selections for debugging
   useEffect(() => {
     if (masterChecked && masterPair) {
-      console.log(`📊 Master pair selected for Account ${acc.num}:`, masterPair);
-    }
+          }
   }, [masterPair, masterChecked, acc.num]);
 
   useEffect(() => {
     if (subscriberChecked && subscriberPair) {
-      console.log(`📊 Subscriber pair selected for Account ${acc.num}:`, subscriberPair);
-    }
+          }
   }, [subscriberPair, subscriberChecked, acc.num]);
 
   // Effect to close the card dropdown when clicking outside
@@ -138,6 +137,29 @@ const Account = ({ acc, id, getId, getName }: AccountProps) => {
       document.removeEventListener("mousedown", handleClickOutside);
     };
   }, [connectionStatus]); // Add connectionStatus as dependency
+
+  // Effect to periodically refresh account data when connected
+  useEffect(() => {
+    let intervalId: NodeJS.Timeout;
+    
+    if (connectionStatus === "connected") {
+      // Refresh account data every 30 seconds when connected
+      intervalId = setInterval(async () => {
+        try {
+                    await refreshAccountData(acc.num);
+        } catch (error) {
+          console.error(`❌ Error during periodic refresh for Account ${acc.num}:`, error);
+        }
+      }, 30000); // 30 seconds
+      
+          }
+    
+    return () => {
+      if (intervalId) {
+        clearInterval(intervalId);
+              }
+    };
+  }, [connectionStatus, acc.num, refreshAccountData]);
 
   // Handles click on the card; expands it and notifies parent of selected ID and Name
   const handleCardClick = () => {
@@ -159,18 +181,14 @@ const Account = ({ acc, id, getId, getName }: AccountProps) => {
       return;
     }
 
-    console.log('🔗 Connecting with user credentials...');
-    console.log('  Wallet address:', publicKey.trim());
-    console.log('  Private key provided:', '✓');
-
+            
     setIsConnecting(true);
     setErrorMessage("");
     setConnectionStatus("idle");
 
     try {
       // First, verify that the private key actually corresponds to the provided wallet address
-      console.log('🔍 Verifying private key matches wallet address...');
-      const verification = await verifyPrivateKeyToAddress(privateKey.trim(), publicKey.trim());
+            const verification = await verifyPrivateKeyToAddress(privateKey.trim(), publicKey.trim());
       
       if (!verification.isValid) {
         console.error('Private key verification failed:', verification.error);
@@ -180,18 +198,12 @@ const Account = ({ acc, id, getId, getName }: AccountProps) => {
         return;
       }
       
-      console.log('Private key verification successful');
-      console.log('  Expected address:', publicKey.trim());
-      console.log('  Derived address:', verification.actualAddress);
-
+                  
       // For agent wallets, we need to approve this wallet to trade on behalf of subaccounts
-      console.log('🔗 Setting up agent wallet for subaccount trading...');
-      
+            
       // Test if this agent wallet is already approved by trying to fetch account data
-      console.log('� Testing agent wallet permissions...');
-      // Test if this agent wallet is already approved by trying to fetch account data
-      console.log('🔍 Testing agent wallet permissions...');
-      
+            // Test if this agent wallet is already approved by trying to fetch account data
+            
       // For agent wallets, we just need to verify the wallet exists
       // The actual subaccount data would be queried separately if needed
       const accountResponse = await fetch('https://api.hyperliquid.xyz/info', {
@@ -208,10 +220,7 @@ const Account = ({ acc, id, getId, getName }: AccountProps) => {
       if (accountResponse.ok) {
         const accountData = await accountResponse.json();
         
-        console.log('Agent wallet connection successful');
-        console.log('Account Data:', accountData);
-        console.log('Agent wallet verified successfully');
-        
+                                
         // For agent accounts, we just need to verify the keys work
         // The master account handles displaying balance/PnL data
         setConnectionStatus("connected");
@@ -219,10 +228,36 @@ const Account = ({ acc, id, getId, getName }: AccountProps) => {
         setErrorMessage("");
         setClicked(true); // Keep card expanded when connected
         
-        console.log('Agent wallet connected successfully with Python-compatible signing');
-        console.log('🔐 Signature verification should now work correctly with HyperLiquid');
+                        
+        // Add to multi-account system
+        const multiAgentAccountData: MultiAgentAccount = {
+          accountId: acc.num,
+          accountName: `${acc.title} ${acc.num}`,
+          publicKey: publicKey.trim(),
+          privateKey: privateKey.trim(),
+          isActive: true,
+          connectionStatus: "connected",
+          balance: "0.00", // Will be updated later
+          pnl: "0.00", // Will be updated later
+          pair: masterPair || subscriberPair || "BTC/USDT",
+          leverage: "20x",
+          openOrdersCount: 0,
+          positions: [], // Empty initially
+          openOrders: [], // Empty initially
+          tradeHistory: [], // Empty initially
+        };
         
-        // Set agent account for trading context
+        // Add to multi-account context
+        addAgentAccount(multiAgentAccountData);
+                
+        // Refresh account data to fetch real balance, PnL, leverage from HyperLiquid API
+        try {
+                    await refreshAccountData(acc.num);
+                  } catch (error) {
+          console.error('❌ Error refreshing account data:', error);
+        }
+        
+        // Also set for backward compatibility with old trading context
         const agentAccountData: AgentAccount = {
           accountId: acc.num,
           accountName: `${acc.title} ${acc.num}`,
@@ -233,16 +268,12 @@ const Account = ({ acc, id, getId, getName }: AccountProps) => {
         };
         
         setAgentAccount(agentAccountData);
-        console.log('Agent account connected for trading:', agentAccountData.accountName);
-        console.log('Agent account ready for trade execution');
-        
+                
         // Log selected trading pairs if any
         if (masterChecked && masterPair) {
-          console.log('Master pair selected:', masterPair);
-        }
+                  }
         if (subscriberChecked && subscriberPair) {
-          console.log('Subscriber pair selected:', subscriberPair);
-        }
+                  }
         
       } else {
         throw new Error(`API request failed. Status: ${accountResponse.status}`);

@@ -12,6 +12,16 @@ export interface BasketOrderConfig {
     quantity: number;
     price?: number;
     leverage: number;
+    limitChaser?: {
+      enabled: boolean;
+      distance: number;
+      distanceType: 'percentage' | 'absolute';
+      maxChases: number;
+      updateInterval: number;
+      chaseCount?: number;
+      longPriceLimit?: number;
+      shortPriceLimit?: number;
+    };
   };
   
   // Stop loss configuration

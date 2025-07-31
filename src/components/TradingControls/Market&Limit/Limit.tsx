@@ -1,25 +1,42 @@
 import * as Slider from "@radix-ui/react-slider"
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import ButtonWrapper from "../ButtonWrapper";
 import LimitChaser from "../LimitChaser";
 import { LimitOrder } from "../LimitOrder";
 import Profits from "../Profits";
 import Leverage from "../Leverage/Leverage";
+import BasketOrder from "../BasketOrder";
+import EntryPosition from "../EntryPosition";
+import { useTrading } from "../../../contexts/TradingContext";
 import { type TradingParams } from "./Market";
 
 const Limit = () => {
 
+    const { getPrice } = useTrading(); // Get current market price
     const [leverage, setLeverage] = useState<number>(10);
     const [value, setValue] = useState<number>(0);
     const [value2, setValue2] = useState<number>(0);
     const [clicked, setClicked] = useState<boolean>(false);
     const [clickedSplit, setClickedSplit] = useState<boolean>(false);
-    const [limitPrice, setLimitPrice] = useState<number>(97000); // Initialize with default BTC price
+    const [clickedBasket, setClickedBasket] = useState<boolean>(false);
+    const [clickedEntryPosition, setClickedEntryPosition] = useState<boolean>(false);
+    const [limitPrice, setLimitPrice] = useState<number>(0); // Start with 0, will be set from market price
+
+    // Get current BTC price and set reasonable limit price
+    useEffect(() => {
+        const currentPrice = getPrice('BTC');
+        if (currentPrice && currentPrice > 0 && limitPrice === 0) {
+            // Set initial limit price to current market price
+            setLimitPrice(currentPrice);
+                    } else if (!currentPrice && limitPrice === 0) {
+            // Fallback to reasonable BTC price if no market data
+            setLimitPrice(97000);
+                    }
+    }, [getPrice, limitPrice]);
 
     // Handle price change from LimitOrder component
     const handlePriceChange = (price: number) => {
-        console.log('🔍 Limit component - received price change:', price);
-        setLimitPrice(price);
+                setLimitPrice(price);
     };
 
     // Create trading parameters to pass to ButtonWrapper
@@ -28,7 +45,7 @@ const Limit = () => {
         positionSize: value,
         stopLoss: 0, // This would come from the stop loss slider
         orderType: "Limit",
-        triggerPrice: limitPrice, // This is the key - pass the limit price
+        triggerPrice: limitPrice, // ⚠️ POTENTIAL BUG: For simple limit orders, the limit price IS the trigger price - but this might conflict with Market component's trigger price
         stopPrice: undefined,
         orderSplit: clickedSplit,
         minPrice: undefined,
@@ -38,9 +55,7 @@ const Limit = () => {
     };
 
     // Debug logging
-    console.log('🔍 Limit Component - Trading Params:', tradingParams);
-    console.log('🔍 Limit Component - limitPrice:', limitPrice);
-
+                
   return (
     <>
           <div className="flex flex-col gap-8">
@@ -161,7 +176,13 @@ const Limit = () => {
                       <span>Upper band</span>
                   </div>
               </div>
+              
+              <BasketOrder clicked={clickedBasket} setClicked={setClickedBasket} />
+              
               <LimitChaser setClicked={setClicked} clicked={clicked} />
+              
+              <EntryPosition setClicked={setClickedEntryPosition} clicked={clickedEntryPosition} />
+              
               <ButtonWrapper tradingParams={tradingParams} />
           </div>
     </>

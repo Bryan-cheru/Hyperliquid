@@ -63,8 +63,7 @@ export const connectToHyperLiquid = async (
 
   try {
     // Mock successful connection
-    console.log(`Connecting account ${connectionData.accountId} to HyperLiquid...`);
-    
+        
     // Simulate HyperLiquid API call with realistic data
     const mockApiResponse = {
       account: {
@@ -108,16 +107,14 @@ export const testHyperLiquidConnection = async (publicKey: string): Promise<bool
 
 // Function to disconnect from HyperLiquid
 export const disconnectFromHyperLiquid = async (accountId: number): Promise<void> => {
-  console.log(`Disconnecting account ${accountId} from HyperLiquid...`);
-  // Clear stored credentials, close connections, etc.
+    // Clear stored credentials, close connections, etc.
   await new Promise(resolve => setTimeout(resolve, 500));
 };
 
 // Function to fetch real account data from HyperLiquid API
 export const fetchAccountData = async (publicKey: string): Promise<AccountData> => {
   try {
-    console.log('🔍 Fetching account data for:', publicKey);
-    
+        
     // Fetch clearinghouse state (balance, positions, etc.)
     const response = await fetch('https://api.hyperliquid.xyz/info', {
       method: 'POST',

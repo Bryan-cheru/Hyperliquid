@@ -1,0 +1,40 @@
+# COPY AND PASTE THESE COMMANDS ONE BY ONE INTO YOUR SERVER TERMINAL
+
+# Step 1: Stop any running apps
+pm2 stop all
+pm2 delete hyperliquid-app || true
+
+# Step 2: Clean up old files
+rm -rf /var/www/hyperliquid
+rm -rf /tmp/hyperliquid-*
+rm -rf /tmp/dist
+rm -rf /tmp/deployment
+
+# Step 3: Go to uploaded files and extract
+cd /tmp
+unzip -o hyperliquid-fresh-deployment.zip
+
+# Step 4: Create directories
+mkdir -p /var/www/hyperliquid
+mkdir -p /var/log/hyperliquid
+
+# Step 5: Copy files
+cp -r * /var/www/hyperliquid/
+
+# Step 6: Set permissions
+chown -R www-data:www-data /var/www/hyperliquid
+chmod -R 755 /var/www/hyperliquid
+
+# Step 7: Install dependencies
+cd /var/www/hyperliquid
+npm install --production
+
+# Step 8: Start the app
+pm2 start ecosystem.config.js
+pm2 save
+
+# Step 9: Check if it's running
+pm2 list
+curl -I http://localhost:3000
+
+# Your website should now be live at: http://155.138.229.220

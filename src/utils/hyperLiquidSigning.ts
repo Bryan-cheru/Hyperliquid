@@ -228,21 +228,17 @@ export async function signOrderAction(action: unknown, nonce: number, privateKey
     const cleanPrivateKey = privateKey.startsWith('0x') ? privateKey : `0x${privateKey}`;
     const wallet = new ethers.Wallet(cleanPrivateKey);
     
-    console.log('� Agent wallet signing with:', wallet.address);
-    console.log('🏛️ Vault address:', vaultAddress || 'none');
-    
+            
     // Create msgpack-based action hash exactly like HyperLiquid Python SDK
     const actionHash = await msgpackHash(action, vaultAddress, nonce);
-    console.log('🔍 Msgpack action hash:', actionHash);
-    
+        
     // Create phantom agent exactly like HyperLiquid Python SDK
     const phantomAgent = {
       source: 'a', // 'a' for mainnet, 'b' for testnet 
       connectionId: actionHash // Direct action hash, not a secondary hash
     };
     
-    console.log('🔍 Phantom agent:', phantomAgent);
-    
+        
     // EIP-712 domain for HyperLiquid
     const domain = {
       chainId: 1337,
@@ -259,27 +255,15 @@ export async function signOrderAction(action: unknown, nonce: number, privateKey
       ]
     };
     
-    console.log('🔍 Signing with EIP-712...');
-    
+        
     // Sign using EIP-712 typed data (HyperLiquid's expected format)
     const signature = await wallet.signTypedData(domain, types, phantomAgent);
     const splitSig = ethers.Signature.from(signature);
     
-    console.log('✅ Order signed successfully');
-    console.log('🔍 Signature components:', {
-      r: splitSig.r,
-      s: splitSig.s,
-      v: splitSig.v
-    });
-    
+            
     // Verify the signature recovery using EIP-712
     const recovered = ethers.verifyTypedData(domain, types, phantomAgent, signature);
-    console.log('🔍 Signature verification:', {
-      signerWallet: wallet.address,
-      recoveredWallet: recovered,
-      signaturesMatch: wallet.address.toLowerCase() === recovered.toLowerCase()
-    });
-    
+        
     if (wallet.address.toLowerCase() !== recovered.toLowerCase()) {
       console.error('❌ Signature verification failed - addresses do not match!');
     }
@@ -337,8 +321,7 @@ export async function approveApiWallet(privateKey: string): Promise<{ success: b
     const cleanPrivateKey = privateKey.startsWith('0x') ? privateKey : `0x${privateKey}`;
     const masterWallet = new ethers.Wallet(cleanPrivateKey);
     
-    console.log('🔗 Approving API wallet for master account:', masterWallet.address);
-    
+        
     // For simplicity, we'll approve the master wallet as its own API wallet
     // In production, you might want to use a separate API wallet
     const approveAction = {
@@ -346,8 +329,7 @@ export async function approveApiWallet(privateKey: string): Promise<{ success: b
       agent: masterWallet.address // Master account approves itself as an agent
     };
     
-    console.log('📋 Approving agent action:', approveAction);
-    
+        
     const nonce = Date.now();
     
     // Sign the approve action with the master wallet
@@ -359,9 +341,7 @@ export async function approveApiWallet(privateKey: string): Promise<{ success: b
       signature
     };
     
-    console.log('📋 Sending API wallet approval to HyperLiquid...');
-    console.log('📋 Payload:', JSON.stringify(payload, null, 2));
-    
+            
     const response = await fetch('https://api.hyperliquid.xyz/exchange', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -369,8 +349,7 @@ export async function approveApiWallet(privateKey: string): Promise<{ success: b
     });
     
     const responseText = await response.text();
-    console.log('📥 Raw API wallet approval response:', response.status, responseText);
-    
+        
     let result;
     try {
       result = JSON.parse(responseText);
@@ -378,8 +357,7 @@ export async function approveApiWallet(privateKey: string): Promise<{ success: b
       result = { error: responseText };
     }
     
-    console.log('📥 API wallet approval response:', result);
-    
+        
     if (response.ok && result.status === "ok") {
       return {
         success: true,
