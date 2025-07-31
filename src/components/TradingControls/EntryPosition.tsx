@@ -10,10 +10,7 @@ interface Props {
 
 export interface EntryPositionParams {
     enabled: boolean;
-    entryPosition: number; // Position size as percentage (0.0 to 1.0)
-    maxPositionSize: number; // Maximum position size in USD
-    calculatedPosition: number; // Calculated position in USD
-    positionType: 'percentage' | 'fixed'; // Position calculation type
+    entryPosition: number; // Position size as percentage (0-100)
     longPriceLimit: number; // Long price limit
     shortPriceLimit: number; // Short price limit
     priceDistance: number; // Price distance percentage
@@ -24,18 +21,11 @@ const EntryPosition = ({ clicked, setClicked, onParametersChange }: Props) => {
     const { connectedAccount } = useTrading();
     
     // Entry position control state
-    const [entryPosition, setEntryPosition] = useState<number>(0.5); // Default 50% position size
-    const [maxPositionSize, setMaxPositionSize] = useState<number>(1000); // Maximum position size in USD
-    const [positionType, setPositionType] = useState<'percentage' | 'fixed'>('percentage');
+    const [entryPosition, setEntryPosition] = useState<number>(0); // Default position size as percentage
     const [longPriceLimit, setLongPriceLimit] = useState<number>(0);
     const [shortPriceLimit, setShortPriceLimit] = useState<number>(0);
-    const [priceDistance, setPriceDistance] = useState<number>(1.5);
+    const [priceDistance, setPriceDistance] = useState<number>(0.0);
     const [fillOrCancel, setFillOrCancel] = useState<boolean>(false);
-
-    // Calculate the actual position size
-    const calculatedPosition = positionType === 'percentage' 
-        ? maxPositionSize * entryPosition 
-        : entryPosition;
 
     // Update parent component when parameters change
     useEffect(() => {
@@ -43,9 +33,6 @@ const EntryPosition = ({ clicked, setClicked, onParametersChange }: Props) => {
             const params: EntryPositionParams = {
                 enabled: clicked,
                 entryPosition,
-                maxPositionSize,
-                calculatedPosition,
-                positionType,
                 longPriceLimit,
                 shortPriceLimit,
                 priceDistance,
@@ -53,7 +40,7 @@ const EntryPosition = ({ clicked, setClicked, onParametersChange }: Props) => {
             };
             onParametersChange(params);
         }
-    }, [clicked, entryPosition, maxPositionSize, positionType, calculatedPosition, longPriceLimit, shortPriceLimit, priceDistance, fillOrCancel, onParametersChange]);
+    }, [clicked, entryPosition, longPriceLimit, shortPriceLimit, priceDistance, fillOrCancel, onParametersChange]);
 
     return (
         <div className="border-t border-[#373A45] pt-4">
@@ -89,123 +76,60 @@ const EntryPosition = ({ clicked, setClicked, onParametersChange }: Props) => {
 
                 {clicked && (
                     <>
-                        {/* Configuration Panel */}
-                        <div>
-                            <h3 className="text-sm font-medium text-yellow-400 mb-3">Position Configuration</h3>
+                        {/* Position Size Input and Slider */}
+                        <div className="mb-4">
+                            <label className="block text-xs text-gray-300 mb-2">Position Size: <span className="text-white">{entryPosition}%</span></label>
                             
-                            {/* Position Type Selection */}
-                            <div className="mb-4">
-                                <label className="block text-xs text-gray-300 mb-2">Position Calculation Type</label>
-                                <div className="flex gap-4">
-                                    <label className="flex items-center gap-2">
-                                        <input
-                                            type="radio"
-                                            name="positionType"
-                                            value="percentage"
-                                            checked={positionType === 'percentage'}
-                                            onChange={(e) => setPositionType(e.target.value as 'percentage' | 'fixed')}
-                                            disabled={!clicked}
-                                            className="w-3 h-3"
-                                        />
-                                        <span className="text-sm text-white">Percentage of Max</span>
-                                    </label>
-                                    <label className="flex items-center gap-2">
-                                        <input
-                                            type="radio"
-                                            name="positionType"
-                                            value="fixed"
-                                            checked={positionType === 'fixed'}
-                                            onChange={(e) => setPositionType(e.target.value as 'percentage' | 'fixed')}
-                                            disabled={!clicked}
-                                            className="w-3 h-3"
-                                        />
-                                        <span className="text-sm text-white">Fixed Amount</span>
-                                    </label>
+                            {/* Position Size Slider and Input on same line */}
+                            <div className="flex items-center gap-4">
+                                <div className="flex-1">
+                                    <Slider.Root
+                                        className="relative flex items-center select-none touch-none w-full h-8"
+                                        min={0}
+                                        max={100}
+                                        step={1}
+                                        value={[entryPosition]}
+                                        onValueChange={([val]) => setEntryPosition(val)}
+                                        disabled={!clicked}
+                                    >
+                                        <Slider.Track className="bg-[#E5E5E5] relative grow rounded-full h-2">
+                                            <Slider.Range className="absolute h-full bg-yellow-400 rounded-full" />
+                                        </Slider.Track>
+                                        <Slider.SliderThumb>
+                                            <svg xmlns="http://www.w3.org/2000/svg" className="outline-none" width="18" height="18" viewBox="0 0 16 16" fill="none">
+                                                <path d="M8 15.4998C12.1421 15.4998 15.5 12.1419 15.5 7.99986C15.5 3.8577 12.1421 0.499847 8 0.499847C3.85788 0.499847 0.5 3.8577 0.5 7.99986C0.5 12.1419 3.85788 15.4998 8 15.4998Z" fill="#F0B90B" />
+                                            </svg>
+                                        </Slider.SliderThumb>
+                                    </Slider.Root>
+                                    <div className="flex justify-between text-xs text-gray-300 mt-1">
+                                        <span>0%</span>
+                                        <span>100%</span>
+                                    </div>
                                 </div>
+                                
+                                <span className="text-sm text-[rgba(255,255,255,0.70)]">or</span>
+                                
+                                <input
+                                    type="number"
+                                    step="1"
+                                    min="0"
+                                    max="100"
+                                    value={entryPosition}
+                                    onChange={(e) => {
+                                        const val = parseFloat(e.target.value);
+                                        if (!isNaN(val) && val >= 0 && val <= 100) {
+                                            setEntryPosition(val);
+                                        } else if (e.target.value === '') {
+                                            // Allow empty input, will use fallback when submitted
+                                            setEntryPosition(0);
+                                        }
+                                    }}
+                                    disabled={!clicked}
+                                    className={`w-20 px-3 py-2 bg-[#373A45] border border-[#4A5568] rounded text-white text-center ${clicked ? "" : "bg-gray-800"}`}
+                                    placeholder="Enter %"
+                                />
                             </div>
                         </div>
-
-                        {positionType === 'percentage' ? (
-                            <>
-                                {/* Percentage Mode Configuration */}
-                                <div className="grid grid-cols-2 gap-4 mb-4">
-                                    <div>
-                                        <label className="block text-xs text-gray-300 mb-1">Position Size (%)</label>
-                                        <input
-                                            type="number"
-                                            step="5"
-                                            min="10"
-                                            max="100"
-                                            value={(entryPosition * 100).toFixed(0)}
-                                            onChange={(e) => {
-                                                const val = parseFloat(e.target.value) / 100;
-                                                if (!isNaN(val) && val >= 0.1 && val <= 1.0) {
-                                                    setEntryPosition(val);
-                                                }
-                                            }}
-                                            disabled={!clicked}
-                                            className={`w-full px-3 py-2 bg-[#373A45] border border-[#4A5568] rounded text-white text-center ${clicked ? "" : "bg-gray-800"}`}
-                                        />
-                                    </div>
-                                    <div>
-                                        <label className="block text-xs text-gray-300 mb-1">Max Position Size (USD)</label>
-                                        <input
-                                            type="number"
-                                            step="100"
-                                            min="100"
-                                            max="50000"
-                                            value={maxPositionSize}
-                                            onChange={(e) => setMaxPositionSize(parseFloat(e.target.value) || 1000)}
-                                            disabled={!clicked}
-                                            className={`w-full px-3 py-2 bg-[#373A45] border border-[#4A5568] rounded text-white text-center ${clicked ? "" : "bg-gray-800"}`}
-                                        />
-                                    </div>
-                                </div>
-
-                                {/* Position Size Slider */}
-                                <div className="mb-4">
-                                    <label className="block text-xs text-gray-300 mb-2">Position Size Slider</label>
-                                    <div className="relative">
-                                        <input
-                                            type="range"
-                                            min="0.1"
-                                            max="1.0"
-                                            step="0.05"
-                                            value={entryPosition}
-                                            onChange={(e) => setEntryPosition(parseFloat(e.target.value))}
-                                            disabled={!clicked}
-                                            className="w-full h-3 bg-gray-600 rounded-lg appearance-none cursor-pointer"
-                                            style={{
-                                                background: !clicked ? '#6b7280' : `linear-gradient(to right, #F0B90B 0%, #F0B90B ${entryPosition * 100}%, #6b7280 ${entryPosition * 100}%, #6b7280 100%)`
-                                            }}
-                                        />
-                                        <div className="flex justify-between text-xs text-gray-300 mt-1">
-                                            <span>10%</span>
-                                            <span className="text-[#F0B90B] font-medium">{(entryPosition * 100).toFixed(0)}%</span>
-                                            <span>100%</span>
-                                        </div>
-                                    </div>
-                                </div>
-                            </>
-                        ) : (
-                            <>
-                                {/* Fixed Amount Mode */}
-                                <div className="mb-4">
-                                    <label className="block text-xs text-gray-300 mb-1">Fixed Position Size (USD)</label>
-                                    <input
-                                        type="number"
-                                        step="10"
-                                        min="10"
-                                        max="50000"
-                                        value={entryPosition}
-                                        onChange={(e) => setEntryPosition(parseFloat(e.target.value) || 100)}
-                                        disabled={!clicked}
-                                        className={`w-full px-3 py-2 bg-[#373A45] border border-[#4A5568] rounded text-white text-center ${clicked ? "" : "bg-gray-800"}`}
-                                        placeholder="Enter fixed amount"
-                                    />
-                                </div>
-                            </>
-                        )}
 
                         {/* Long and Short Price Limits */}
                         <div className="grid grid-cols-2 gap-4 mb-4">
@@ -237,14 +161,14 @@ const EntryPosition = ({ clicked, setClicked, onParametersChange }: Props) => {
 
                         {/* Price Distance Slider */}
                         <div className="mb-4">
-                            <h4 className="text-[#B0B0B0] text-sm mb-3">Price Distance: <span className="text-white">{priceDistance}%</span></h4>
+                            <h4 className="text-[#B0B0B0] text-sm mb-3">Price Distance: <span className="text-white">{priceDistance.toFixed(2)}%</span></h4>
                             <div className="flex items-center gap-4">
                                 <div className="flex-1">
                                     <Slider.Root
                                         className="relative flex items-center select-none touch-none w-full h-8"
-                                        min={0.1}
+                                        min={0}
                                         max={5}
-                                        step={0.1}
+                                        step={0.01}
                                         value={[priceDistance]}
                                         onValueChange={([val]) => setPriceDistance(val)}
                                         disabled={!clicked}
@@ -259,7 +183,7 @@ const EntryPosition = ({ clicked, setClicked, onParametersChange }: Props) => {
                                         </Slider.SliderThumb>
                                     </Slider.Root>
                                     <div className="flex justify-between text-sm text-white mt-1">
-                                        <span>0.1%</span>
+                                        <span>0%</span>
                                         <span>5%</span>
                                     </div>
                                 </div>
@@ -268,18 +192,21 @@ const EntryPosition = ({ clicked, setClicked, onParametersChange }: Props) => {
                                 
                                 <input 
                                     type="number" 
-                                    step="0.1"
-                                    min="0.1"
+                                    step="0.01"
+                                    min="0"
                                     max="5"
-                                    value={priceDistance.toFixed(1)}
+                                    value={priceDistance.toFixed(2)}
                                     onChange={(e) => {
                                         const val = parseFloat(e.target.value);
-                                        if (!isNaN(val) && val >= 0.1 && val <= 5) {
+                                        if (!isNaN(val) && val >= 0 && val <= 5) {
                                             setPriceDistance(val);
+                                        } else if (e.target.value === '') {
+                                            // Allow empty input, will use 0 as fallback
+                                            setPriceDistance(0);
                                         }
                                     }}
                                     disabled={!clicked}
-                                    placeholder="1.5%" 
+                                    placeholder="0.00%" 
                                     className={`w-20 px-3 py-2 bg-[#373A45] border border-[#4A5568] rounded text-white text-center ${clicked ? "" : "bg-gray-800"}`}
                                 />
                             </div>

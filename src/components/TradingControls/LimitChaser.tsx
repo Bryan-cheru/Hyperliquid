@@ -35,7 +35,7 @@ const LimitChaser = ({ clicked, setClicked, onParametersChange }: Props) => {
     const [timeframe, setTimeframe] = useState<number>(60); // Default to 60 seconds
     
     // Add distance-based state variables
-    const [distance, setDistance] = useState<number>(1.0); // Default 1% distance
+    const [distance, setDistance] = useState<number>(0.0); // Default 0% distance
     
     // Auto-calculate default take profit levels when position is created
     useEffect(() => {
@@ -255,7 +255,7 @@ const LimitChaser = ({ clicked, setClicked, onParametersChange }: Props) => {
 
                         {/* Simple Price Distance Slider */}
                         <div className="mb-6">
-                            <h4 className="text-[#B0B0B0] text-sm mb-3">Price Distance</h4>
+                            <h4 className="text-[#B0B0B0] text-sm mb-3">Price Distance: <span className="text-white">{distance.toFixed(2)}%</span></h4>
                             <div className="flex items-center gap-4">
                                 {/* Slider */}
                                 <div className="flex-1">
@@ -263,7 +263,7 @@ const LimitChaser = ({ clicked, setClicked, onParametersChange }: Props) => {
                                         className="relative flex items-center select-none touch-none w-full h-8"
                                         min={0}
                                         max={5}
-                                        step={0.1}
+                                        step={0.01}
                                         value={[distance]}
                                         onValueChange={([val]) => setDistance(val)}
                                         disabled={!clicked}
@@ -289,18 +289,21 @@ const LimitChaser = ({ clicked, setClicked, onParametersChange }: Props) => {
                                 {/* Manual Input */}
                                 <input 
                                     type="number" 
-                                    step="0.1"
+                                    step="0.01"
                                     min="0"
                                     max="5"
-                                    value={distance.toFixed(1)}
+                                    value={distance.toFixed(2)}
                                     onChange={(e) => {
                                         const val = parseFloat(e.target.value);
                                         if (!isNaN(val) && val >= 0 && val <= 5) {
                                             setDistance(val);
+                                        } else if (e.target.value === '') {
+                                            // Allow empty input, will use 0 as fallback
+                                            setDistance(0);
                                         }
                                     }}
                                     disabled={!clicked}
-                                    placeholder="Enter %" 
+                                    placeholder="0.00%" 
                                     className={`w-20 px-3 py-2 bg-[#373A45] border border-[#4A5568] rounded text-white text-center ${clicked ? "" : "bg-gray-800"}`}
                                 />
                             </div>

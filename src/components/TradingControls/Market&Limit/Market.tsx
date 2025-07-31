@@ -445,12 +445,12 @@ const Market = ({ selectedOrderType = "Market" }: MarketProps) => {
                         </div>
 
                         <div>
-                            <h4 className="text-[#B0B0B0] text-sm mb-3">Price Distance: <span className="text-white">{priceDistance}%</span></h4>
+                            <h4 className="text-[#B0B0B0] text-sm mb-3">Price Distance: <span className="text-white">{priceDistance.toFixed(2)}%</span></h4>
                             <Slider.Root
                                 className="relative flex items-center select-none touch-none w-full h-8"
-                                min={0.1}
+                                min={0.01}
                                 max={5}
-                                step={0.1}
+                                step={0.01}
                                 value={[priceDistance]}
                                 onValueChange={([val]) => setPriceDistance(val)}
                             >
@@ -464,8 +464,8 @@ const Market = ({ selectedOrderType = "Market" }: MarketProps) => {
                                 </Slider.SliderThumb>
                             </Slider.Root>
                             <div className="flex justify-between text-sm text-white mt-1">
-                                <span>0.1%</span>
-                                <span>5%</span>
+                                <span>0.01%</span>
+                                <span>5.00%</span>
                             </div>
                         </div>
                     </div>
