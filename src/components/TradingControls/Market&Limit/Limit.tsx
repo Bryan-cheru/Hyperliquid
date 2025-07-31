@@ -91,6 +91,13 @@ const Limit = () => {
               </div>
               <Profits />
               <LimitOrder onPriceChange={handlePriceChange} />
+              
+              {/* Entry Limit Chaser - moved to be below standard limit order section */}
+              <EntryPosition setClicked={setClickedEntryPosition} clicked={clickedEntryPosition} />
+              {/* Stop Loss Limit Chaser - moved to be below stop loss section */}
+              <LimitChaser setClicked={setClicked} clicked={clicked} />
+              
+              
               <div className="flex gap-3 items-center -mt-3 -mb-3">
                   <label className="relative cursor-pointer flex">
                       <input
@@ -178,10 +185,6 @@ const Limit = () => {
               </div>
               
               <BasketOrder clicked={clickedBasket} setClicked={setClickedBasket} />
-              
-              <LimitChaser setClicked={setClicked} clicked={clicked} />
-              
-              <EntryPosition setClicked={setClickedEntryPosition} clicked={clickedEntryPosition} />
               
               <ButtonWrapper tradingParams={tradingParams} />
           </div>
